@@ -506,6 +506,9 @@ h3 {
     padding-bottom: 80px;
     min-height: 90vh;
     display: flex;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     align-items: center;
     justify-content: center;
     background-image: var(--hero-gradient);
@@ -520,6 +523,185 @@ h3 {
     width: 100%;
     max-width: 1200px;
     padding: 0 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(60% 65% at 15% 18%, rgba(255, 122, 0, 0.16), transparent 70%),
+        radial-gradient(55% 60% at 88% 8%, rgba(255, 77, 0, 0.14), transparent 72%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 247, 239, 0.5) 45%, rgba(255, 255, 255, 0.9) 100%);
+}
+
+.hero-bg-grid {
+    position: absolute;
+    inset: -24% -16% auto;
+    height: 95%;
+    background-image:
+        linear-gradient(to right, rgba(255, 122, 0, 0.14) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 122, 0, 0.14) 1px, transparent 1px);
+    background-size: 84px 84px;
+    transform: perspective(680px) rotateX(60deg) translateY(-6%);
+    transform-origin: top center;
+    opacity: 0.35;
+    animation: heroGridDrift 26s linear infinite;
+}
+
+.hero-bg::after {
+    content: "";
+    position: absolute;
+    inset: -12% -30%;
+    background: linear-gradient(115deg, transparent 25%, rgba(255, 122, 0, 0.1) 50%, transparent 75%);
+    animation: heroSweep 12s linear infinite;
+}
+
+.hero-bg-orb {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(2px);
+    animation: heroOrbFloat 10s ease-in-out infinite;
+}
+
+.hero-bg-orb-left {
+    width: 280px;
+    height: 280px;
+    top: 18%;
+    left: -50px;
+    background: radial-gradient(circle, rgba(255, 122, 0, 0.28) 0%, rgba(255, 122, 0, 0) 70%);
+}
+
+.hero-bg-orb-right {
+    width: 360px;
+    height: 360px;
+    top: 2%;
+    right: -80px;
+    background: radial-gradient(circle, rgba(255, 160, 0, 0.24) 0%, rgba(255, 160, 0, 0) 70%);
+    animation-delay: -4.5s;
+}
+
+.hero-flow-track {
+    position: absolute;
+    left: -10%;
+    width: 120%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 77, 0, 0.22) 45%, rgba(255, 122, 0, 0.45) 50%, rgba(255, 77, 0, 0.22) 55%, transparent 100%);
+    box-shadow: 0 0 12px rgba(255, 122, 0, 0.22);
+    transform-origin: center;
+    opacity: 0.9;
+}
+
+.hero-flow-track .packet {
+    position: absolute;
+    top: 50%;
+    left: -5%;
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, #fff 0%, #ffe9d4 32%, #ff7a00 65%, rgba(255, 122, 0, 0.15) 100%);
+    box-shadow: 0 0 16px rgba(255, 122, 0, 0.45), 0 0 28px rgba(255, 122, 0, 0.3);
+    animation: packetTravel 7.4s linear infinite;
+}
+
+.hero-flow-track.track-a {
+    top: 26%;
+    transform: rotate(8deg);
+}
+
+.hero-flow-track.track-b {
+    top: 40%;
+    transform: rotate(-6deg);
+}
+
+.hero-flow-track.track-c {
+    top: 58%;
+    transform: rotate(10deg);
+}
+
+.hero-flow-track.track-d {
+    top: 72%;
+    transform: rotate(-7deg);
+}
+
+.track-b .packet {
+    animation-delay: -1.7s;
+    animation-duration: 8.4s;
+}
+
+.track-c .packet {
+    animation-delay: -3.4s;
+    animation-duration: 9.2s;
+}
+
+.track-d .packet {
+    animation-delay: -2.6s;
+    animation-duration: 10s;
+}
+
+.hero-bg-noise {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 122, 0, 0.14) 0.6px, transparent 0.6px);
+    background-size: 3px 3px;
+    opacity: 0.1;
+}
+
+@keyframes heroGridDrift {
+    from {
+        background-position: 0 0, 0 0;
+    }
+    to {
+        background-position: 84px 0, 0 84px;
+    }
+}
+
+@keyframes heroSweep {
+    0% {
+        transform: translateX(-16%) translateY(-2%);
+        opacity: 0;
+    }
+    15% {
+        opacity: 0.65;
+    }
+    65% {
+        opacity: 0.65;
+    }
+    100% {
+        transform: translateX(16%) translateY(2%);
+        opacity: 0;
+    }
+}
+
+@keyframes heroOrbFloat {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+        transform: translate3d(0, -14px, 0) scale(1.05);
+    }
+}
+
+@keyframes packetTravel {
+    0% {
+        left: 0%;
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    88% {
+        opacity: 1;
+    }
+    100% {
+        left: 100%;
+        opacity: 0;
+    }
 }
 
 /* Hero Text */
@@ -1102,6 +1284,15 @@ button#checkBtn:hover {
     .hero {
         padding-top: 100px;
     }
+
+    .hero-bg-grid {
+        opacity: 0.22;
+        transform: perspective(600px) rotateX(62deg) translateY(2%);
+    }
+
+    .hero-flow-track.track-d {
+        display: none;
+    }
 }
 
 @media (max-width: 600px) {
@@ -1114,6 +1305,35 @@ button#checkBtn:hover {
 
     .hero-text h1 {
         font-size: 2.5rem;
+    }
+
+    .hero-bg {
+        background:
+            radial-gradient(70% 80% at 18% 18%, rgba(255, 122, 0, 0.14), transparent 74%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 247, 239, 0.5) 50%, rgba(255, 255, 255, 0.95) 100%);
+    }
+
+    .hero-bg-orb-right,
+    .hero-flow-track.track-c {
+        display: none;
+    }
+
+    .hero-flow-track {
+        opacity: 0.55;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-bg-grid,
+    .hero-bg::after,
+    .hero-bg-orb,
+    .hero-flow-track .packet {
+        animation: none !important;
+    }
+
+    .hero-flow-track .packet {
+        opacity: 0.65;
+        left: 45%;
     }
 }
 

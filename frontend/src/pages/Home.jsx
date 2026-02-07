@@ -229,7 +229,16 @@ const Home = () => {
     return (
         <>
             <section className="hero">
-                <div className="hero-bg"></div>
+                <div className="hero-bg" aria-hidden="true">
+                    <div className="hero-bg-grid"></div>
+                    <div className="hero-bg-orb hero-bg-orb-left"></div>
+                    <div className="hero-bg-orb hero-bg-orb-right"></div>
+                    <div className="hero-flow-track track-a"><span className="packet"></span></div>
+                    <div className="hero-flow-track track-b"><span className="packet"></span></div>
+                    <div className="hero-flow-track track-c"><span className="packet"></span></div>
+                    <div className="hero-flow-track track-d"><span className="packet"></span></div>
+                    <div className="hero-bg-noise"></div>
+                </div>
                 <div className="hero-content">
                     <div className="hero-text">
                         <h1>Precise IP Solution for <span className="gradient-text">Your Business</span></h1>
