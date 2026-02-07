@@ -147,14 +147,14 @@ const Pricing = () => {
                                     <div className="plan-header">
                                         <h3>Free</h3>
                                         <div className="price">$0<span>/mo</span></div>
-                                        <p className="plan-desc">Perfect for hobbyists and testing.</p>
+                                        <p className="plan-desc">Perfect for testing and experiments.</p>
                                     </div>
                                     <ul className="features-list">
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 100 requests / day</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Basic IP Geolocation</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Community Support</li>
-                                        <li><i className="fas fa-times-circle" style={{ color: 'var(--error-fg)' }}></i> ASN Data</li>
-                                        <li><i className="fas fa-times-circle" style={{ color: 'var(--error-fg)' }}></i> VPN Detection</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 100 requests per day</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Basic IP geolocation</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Community support</li>
+                                        <li><i className="fas fa-times-circle" style={{ color: 'var(--error-fg)' }}></i> No ASN data</li>
+                                        <li><i className="fas fa-times-circle" style={{ color: 'var(--error-fg)' }}></i> No VPN detection</li>
                                     </ul>
                                     <a href="/start-checkout?plan=free" className="btn-secondary full-width">Get Started</a>
                                 </div>
@@ -165,17 +165,22 @@ const Pricing = () => {
                                     <div className="plan-header">
                                         <h3>Starter</h3>
                                         <div className="price">$7<span>/mo</span></div>
-                                        <p className="plan-desc">For small apps and websites.</p>
+                                        <p className="plan-desc">For small apps and early products.</p>
                                     </div>
                                     <ul className="features-list">
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 50,000 requests / month</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Includes: <code>ip_type</code>, <code>user_type</code>, <code>continent</code></li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Includes: <code>country_code</code>, <code>country_name</code>, <code>is_eu</code></li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Includes: <code>is_datacenter</code>, <code>netname</code></li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Includes: <code>city</code>, <code>region</code>, <code>time_zone</code></li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Includes: <code>lat/lon</code></li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 50,000 requests per month</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> IP &amp; network insights</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> IP type &amp; user type</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Datacenter detection</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Network name</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Location data</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Country &amp; continent</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> City &amp; region</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Time zone</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Coordinates (latitude &amp; longitude)</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> EU compliance flag</li>
                                     </ul>
-                                    <a href="/start-checkout?plan=start" className="btn-primary full-width">Start Free Trial</a>
+                                    <a href="/start-checkout?plan=start" className="btn-primary full-width">Upgrade to Starter</a>
                                 </div>
 
                                 {/* Pro */}
@@ -183,14 +188,23 @@ const Pricing = () => {
                                     <div className="plan-header">
                                         <h3>Pro</h3>
                                         <div className="price">$15<span>/mo</span></div>
-                                        <p className="plan-desc">For scaling businesses.</p>
+                                        <p className="plan-desc">For scaling and production use.</p>
                                     </div>
                                     <ul className="features-list">
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 500,000 requests / month</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Everything in Starter</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Adds: <code>asn</code>, <code>asn_name</code>, <code>zip_code</code>, <code>elevation</code></li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Adds: <code>utc_offset</code>, VPN detection, crawler detection</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Adds: <code>currency_code</code>, <code>currency_name</code></li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 500,000 requests per month</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Everything in Starter, plus:</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Advanced network intelligence</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> ASN &amp; ASN name</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Associated domain</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Security &amp; traffic signals</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> VPN detection</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Crawler / bot detection</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Enhanced location data</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> ZIP / postal code</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Elevation</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Time &amp; currency info</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> UTC offset</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Local currency code &amp; name</li>
                                     </ul>
                                     <a href="/start-checkout?plan=pro" className="btn-secondary full-width">Upgrade to Pro</a>
                                 </div>
@@ -200,21 +214,17 @@ const Pricing = () => {
                                     <div className="popular-badge" style={{ background: 'var(--accent-secondary)' }}>Best Value</div>
                                     <div className="plan-header">
                                         <h3>Max</h3>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <div className="old-price-banner">
-                                                <span className="old-price">$39.99<span>/mo</span></span>
-                                            </div>
-                                            <div className="price deal-price">$25<span>/mo</span></div>
-                                        </div>
-                                        <p className="plan-desc">Special deal for this month!</p>
+                                        <div className="price">$25<span>/mo</span></div>
+                                        <p className="plan-desc">Limited offer • High-volume &amp; high-performance.</p>
                                     </div>
                                     <ul className="features-list">
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 2,000,000 requests / month</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Everything in Pro</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Higher request limit</li>
-                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Bulk endpoint</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> 2,000,000 requests per month</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Everything in Pro, plus:</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Bulk IP lookup endpoint</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> High-concurrency support</li>
+                                        <li><i className="fas fa-check" style={{ color: 'var(--text-primary)' }}></i> Optimized for large-scale workloads</li>
                                     </ul>
-                                    <a href="/start-checkout?plan=max" className="btn-primary full-width" style={{ background: 'var(--accent-secondary)' }}>Upgrade to Max</a>
+                                    <a href="/start-checkout?plan=max" className="btn-primary full-width" style={{ background: 'var(--accent-secondary)' }}>Start Free Trial</a>
                                 </div>
 
                                 {/* Enterprise */}

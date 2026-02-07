@@ -762,12 +762,14 @@ CHECKOUT_PLAN_CATALOG = {
         "category": "API",
         "price": "$0",
         "period": "/mo",
-        "description": "Best for testing and hobby projects.",
-        "cta_label": "Activate Free",
+        "description": "Perfect for testing and experiments.",
+        "cta_label": "Get Started",
         "features": [
             "100 requests per day",
             "Basic IP geolocation",
-            "Community support"
+            "Community support",
+            "No ASN data",
+            "No VPN detection"
         ]
     },
     "start": {
@@ -775,13 +777,20 @@ CHECKOUT_PLAN_CATALOG = {
         "category": "API",
         "price": "$7",
         "period": "/mo",
-        "description": "For small apps that need core enrichment fields.",
-        "cta_label": "Start Free Trial",
+        "description": "For small apps and early products.",
+        "cta_label": "Upgrade to Starter",
         "features": [
             "50,000 requests per month",
-            "ip_type, user_type, continent",
-            "country_code, country_name, is_eu",
-            "is_datacenter, netname, city, region, time_zone, lat/lon"
+            "IP & network insights",
+            "IP type & user type",
+            "Datacenter detection",
+            "Network name",
+            "Location data",
+            "Country & continent",
+            "City & region",
+            "Time zone",
+            "Coordinates (latitude & longitude)",
+            "EU compliance flag"
         ]
     },
     "pro": {
@@ -789,14 +798,23 @@ CHECKOUT_PLAN_CATALOG = {
         "category": "API",
         "price": "$15",
         "period": "/mo",
-        "description": "Everything in Starter plus advanced enrichment fields.",
+        "description": "For scaling and production use.",
         "cta_label": "Upgrade to Pro",
         "features": [
             "500,000 requests per month",
-            "Everything in Starter",
-            "asn, asn_name, zip_code, elevation, utc_offset",
-            "VPN detection, crawler detection",
-            "currency_code, currency_name"
+            "Everything in Starter, plus:",
+            "Advanced network intelligence",
+            "ASN & ASN name",
+            "Associated domain",
+            "Security & traffic signals",
+            "VPN detection",
+            "Crawler / bot detection",
+            "Enhanced location data",
+            "ZIP / postal code",
+            "Elevation",
+            "Time & currency info",
+            "UTC offset",
+            "Local currency code & name"
         ]
     },
     "max": {
@@ -804,13 +822,14 @@ CHECKOUT_PLAN_CATALOG = {
         "category": "API",
         "price": "$25",
         "period": "/mo",
-        "description": "Everything in Pro with higher request limits and bulk access.",
-        "cta_label": "Upgrade to Max",
+        "description": "Limited offer • High-volume & high-performance.",
+        "cta_label": "Start Free Trial",
         "features": [
             "2,000,000 requests per month",
-            "Everything in Pro",
-            "Higher request limit",
-            "Bulk endpoint access"
+            "Everything in Pro, plus:",
+            "Bulk IP lookup endpoint",
+            "High-concurrency support",
+            "Optimized for large-scale workloads"
         ]
     },
     "db_onetime": {
