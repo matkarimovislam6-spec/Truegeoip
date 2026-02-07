@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us | TrueGeoIP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=20260206-legal2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="TrueGeoIP Logo" style="height: 32px; width: auto;">
+                    TrueGeoIP
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/#features">Features</a>
+                <a href="/#api">API</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/contact" class="active">Contact</a>
+            </div>
+            {% if user %}
+            <div class="profile-menu">
+                <a href="#" class="profile-avatar-btn">{{ user.name[:1] }}</a>
+                <div class="profile-dropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-header-avatar">{{ user.name[:1] }}</div>
+                        <div class="dropdown-header-info">
+                            <div class="dropdown-header-name">{{ user.name }}</div>
+                            <div class="dropdown-header-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-section">
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-user"></i> Profile
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-key"></i> API Keys
+                        </a>
+                        <a href="/pricing" class="dropdown-item">
+                            <i class="fas fa-credit-card"></i> Billing
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-section">
+                        <a href="/signout" class="dropdown-item danger">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="display: flex; gap: 0.75rem;">
+                <a href="/signin"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; display: flex; align-items: center;">Sign
+                    In</a>
+                <a href="/signup" class="btn-primary">Get Started</a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Contact Hero Section -->
+    <section class="hero" style="min-height: 80vh; display: flex; align-items: center;">
+        <div class="hero-bg"></div>
+        <div class="container">
+            <div style="max-width: 800px; margin: 0 auto; text-align: center;">
+                <h1 style="margin-bottom: 1rem;">Get in Touch with <span class="gradient-text">TrueGeoIP</span>
+                </h1>
+                <p class="hero-subtitle" style="margin-bottom: 3rem;">
+                    We are here to help you with your IP intelligence needs.
+                </p>
+
+                <div class="glass-card" style="text-align: left; padding: 2.5rem; max-width: 500px; margin: 0 auto;">
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+                        <!-- Email -->
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div
+                                style="width: 50px; height: 50px; background: rgba(255, 122, 0, 0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                                <i class="fas fa-envelope fa-lg"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 0.2rem;">
+                                    Email</div>
+                                <a href="mailto:matkarimovislam6@gmail.com"
+                                    style="color: var(--text-primary); text-decoration: none; font-weight: 500; font-size: 1.1em;">
+                                    matkarimovislam6@gmail.com
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Telegram -->
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div
+                                style="width: 50px; height: 50px; background: rgba(255, 122, 0, 0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
+                                <i class="fab fa-telegram fa-lg"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 0.2rem;">
+                                    Telegram</div>
+                                <a href="https://t.me/matkarimovii" target="_blank"
+                                    style="color: var(--text-primary); text-decoration: none; font-weight: 500; font-size: 1.1em;">
+                                    @matkarimovii
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Phone -->
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div
+                                style="width: 50px; height: 50px; background: rgba(255, 122, 0, 0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
+                                <i class="fas fa-phone fa-lg"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 0.2rem;">
+                                    Phone</div>
+                                <a href="tel:+998914327813"
+                                    style="color: var(--text-primary); text-decoration: none; font-weight: 500; font-size: 1.1em;">
+                                    +998 91 432 78 13
+                                </a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container footer-content">
+            <p>&copy; 2026 TrueGeoIP. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Design Normalization: No theme scripts needed
+    </script>
+</body>
+
+</html>

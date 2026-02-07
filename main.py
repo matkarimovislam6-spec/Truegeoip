@@ -1,0 +1,1549 @@
+from fastapi import FastAPI, HTTPException, Request, Depends, Form, status, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
+from contextlib import asynccontextmanager
+import sqlite3
+import ipaddress
+import uvicorn
+import time
+import asyncio
+import os
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from cachetools import TTLCache
+from typing import Optional, Dict, Any
+import threading
+import bisect
+from urllib.parse import quote, urlencode
+import httpx  # For elevation API
+import auth  # New auth module
+import analytics  # Analytics module
+import licenses # License module
+from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
+# Configuration
+DB_FILE = "ripe.sqlite"
+CACHE_SIZE = 100000
+CACHE_TTL = 3600
+NUM_WORKERS = 16
+
+# Global resources
+executor: ThreadPoolExecutor = None
+ip_cache = TTLCache(maxsize=CACHE_SIZE, ttl=CACHE_TTL)
+# Elevation data will be loaded into memory
+elevation_data = {}
+cache_lock = threading.Lock()
+
+# In-memory sorted data for fast binary search
+city_data = []  # [(start_hex, end_hex, row_dict), ...]
+asn_data = []   # [(start_int, end_int, row_dict), ...]
+asn_new_data = []  # [(start_hex, end_hex, row_dict), ...]
+vpn_range_data = [] # [(start_hex, end_hex, row_dict), ...]
+threat_data = [] # [(start_hex, end_hex, row_dict), ...]
+user_type_data = [] # [(start_hex, end_hex, row_dict), ...]
+countries = {}  # alpha2 -> row_dict
+currencies = {}  # country_code -> row_dict
+dial_codes = {}  # alpha3 -> dial_code
+fallback_cities = {}  # alpha3 -> capital_city
+
+# Pre-compiled IP network objects
+PRIVATE_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+]
+CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")
+LOOPBACK_NETWORK = ipaddress.ip_network("127.0.0.0/8")
+APIPA_NETWORK = ipaddress.ip_network("169.254.0.0/16")
+MULTICAST_NETWORK = ipaddress.ip_network("224.0.0.0/4")
+UNSPECIFIED_NETWORK = ipaddress.ip_network("0.0.0.0/8")
+RESERVED_NETWORK = ipaddress.ip_network("240.0.0.0/4")
+BENCHMARK_NETWORK = ipaddress.ip_network("198.18.0.0/15")
+
+# European Union member countries (ISO 3166-1 alpha-2 codes)
+EU_COUNTRIES = {
+    "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
+    "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+    "PL", "PT", "RO", "SK", "SI", "ES", "SE"
+}
+
+# Known datacenter/hosting provider ASNs (for is_datacenter detection) - 100+ entries
+DATACENTER_ASNS = {
+    # Major Cloud Providers
+    "16509", "14618", "7224",  # AWS/Amazon
+    "8075", "12076", "8074",   # Microsoft/Azure
+    "15169", "396982", "19527", "394089", "36040",  # Google
+    "14061", "62567",  # DigitalOcean
+    "13335", "209242",  # Cloudflare
+    "24940", "213230",  # Hetzner
+    "16276",  # OVH
+    "20473", "20454",  # Vultr
+    "63949",  # Linode
+    "31898",  # Oracle Cloud (ORACLE-BMC-31898)
+    "45090",  # Tencent Cloud
+    
+    # CDN / Edge Networks
+    "20940", "16625", "36183",  # Akamai
+    "54113",  # Fastly
+    "212238",  # CDNEXT
+    
+    # Major Hosting Providers
+    "9009",   # M247 (major hosting)
+    "36352",  # ColoCrossing
+    "62240",  # Clouvider
+    "7979",   # Servers.com
+    "8100",   # QuadraNet
+    "46606",  # Unified Layer
+    "36351",  # SoftLayer/IBM
+    "47583",  # Hostinger
+    "398101",  # GoDaddy
+    "26347",  # DreamHost
+    "22611",  # InMotion Hosting
+    "46844", "32244",  # Liquid Web
+    "35916",  # Multacom
+    "30083",  # HEG US
+    "60781",  # LeaseWeb Netherlands
+    "28753",  # LeaseWeb Germany
+    "56106",  # 1337 Services (privacy hosting)
+    "200019",  # AlexHost
+    "204957",  # Green Floid
+    "50613",  # Makonix
+    "62005",  # BlueVPS
+    "57043",  # Hostkey
+    "35415",  # Webzilla
+    "44901",  # Belcloud
+    "41079",  # Zurich Datacenter
+    
+    # Transit / Infrastructure (often used for hosting)
+    "174",    # Cogent
+    "3356",   # Level3/Lumen
+    "3257",   # GTT
+    "3549",   # Level3
+    "701",    # Verizon/UUNET
+    
+    # Large Tech Companies (datacenter IPs)
+    "714",    # Apple Engineering
+    "32934",  # Facebook/Meta
+    "8069",   # Microsoft
+    "6185",   # Apple
+    
+    # VPS / Budget Hosting
+    "46664",  # VolumeDrive
+    "53667",  # FranTech/BuyVM
+    "25369",  # Hydra Communications
+    "21100",  # ITL-Bulgaria
+    "60626",  # ITL
+    
+    # Regional Hosting Providers
+    "19844", "33070",  # Zayo
+    "14593",  # SpaceX Starlink (satellite, often flagged)
+    
+    # Privacy/Anonymity focused (high VPN usage)
+    "206264",  # Amarutu Technology (privacy)
+    "9009",    # M247 (VPN favorite)
+    "60068",   # Datacamp
+    "51852",   # Private Layer
+    "44927",   # The Constant Company
+    "132203",  # Tencent Building
+    "61969",   # TeamViewer
+    "397423",  # Tier.Net
+    "395092",  # Google Fiber
+    "6939",    # Hurricane Electric
+    "46562",   # Performive
+    "30633",   # Leaseweb USA
+    "19551",   # Incapsula (Imperva)
+    "55286",   # DataCamp
+    "40676",   # Psychz Networks
+    "23033",   # Wowrack
+    "29802",   # HVC-AS (hosting)
+    "34549",   # meerfarbig GmbH
+    "51167",   # Contabo
+    "24961",   # myLoc (hosting)
+    "197540",  # netcup
+    "29066",   # velia.net
+    "42708",   # Portlane
+    "50673",   # Serverius
+    "49981",   # WorldStream
+    "42831",   # UK Dedicated Servers
+    "20278",   # Nexeon
+    "133618",  # Trellian (hosting)
+    "46475",   # Limenet
+    "23470",   # ReliableSite
+    "55225",   # IT7 Networks
+    "36114",   # Orca Wave
+    "3223",    # Voxility
+    "199883",  # VPSie
+}
+
+# Keywords in ASN names that indicate datacenter/hosting
+DATACENTER_KEYWORDS = {
+    "amazon", "aws", "azure", "microsoft", "google", "cloud", "gcp",
+    "digitalocean", "linode", "vultr", "hetzner", "ovh", "cloudflare",
+    "hosting", "host", "server", "datacenter", "datacentre", "data center",
+    "vps", "dedicated", "colo", "colocation", "rack", "servers",
+    "leaseweb", "softlayer", "rackspace", "godaddy", "dreamhost",
+    "hostinger", "bluehost", "hostgator", "ionos", "contabo",
+    "scaleway", "upcloud", "kamatera", "cherry", "packet",
+}
+
+
+def is_datacenter(asn: str, asn_name: str) -> bool:
+    """
+    Detect if an IP likely belongs to a datacenter/hosting provider.
+    Returns True if the ASN is a known datacenter or contains hosting keywords.
+    """
+    # Check ASN number directly
+    if asn and str(asn) in DATACENTER_ASNS:
+        return True
+    
+    # Check ASN name for keywords
+    if asn_name:
+        name_lower = asn_name.lower()
+        for keyword in DATACENTER_KEYWORDS:
+            if keyword in name_lower:
+                return True
+    
+    return False
+
+
+def get_ip_type_fast(ip_obj) -> str:
+    """Optimized IP type detection."""
+    try:
+        for net in PRIVATE_NETWORKS:
+            if ip_obj in net:
+                return "Private"
+        if ip_obj in CGNAT_NETWORK:
+            return "CGNAT"
+        if ip_obj in LOOPBACK_NETWORK:
+            return "Loopback"
+        if ip_obj in APIPA_NETWORK:
+            return "APIPA"
+        if ip_obj in MULTICAST_NETWORK:
+            return "Multicast"
+        if str(ip_obj) == "255.255.255.255":
+            return "Broadcast"
+        if ip_obj in UNSPECIFIED_NETWORK:
+            return "Unspecified"
+        if ip_obj in RESERVED_NETWORK:
+            return "IANA (Reserved)"
+        if ip_obj in BENCHMARK_NETWORK:
+            return "Benchmarking"
+        return "Public"
+    except Exception:
+        return "Unknown"
+
+
+def binary_search_range_hex(data, ip_hex):
+    """Binary search for IP in sorted hex ranges. Returns the SMALLEST (most specific) matching range."""
+    if not data:
+        return None
+    
+    # Binary search to find a starting point
+    left, right = 0, len(data) - 1
+    candidates = []
+    
+    while left <= right:
+        mid = (left + right) // 2
+        start_hex, end_hex, row = data[mid]
+        
+        if start_hex <= ip_hex <= end_hex:
+            # Found a match, but there might be more specific ones
+            # Collect this and search nearby for overlapping ranges
+            candidates.append((start_hex, end_hex, row))
+            
+            # Search left for more matches (smaller start_hex that might contain IP)
+            i = mid - 1
+            while i >= 0:
+                s, e, r = data[i]
+                if s <= ip_hex <= e:
+                    candidates.append((s, e, r))
+                elif e < ip_hex:
+                    break  # No more matches to the left
+                i -= 1
+            
+            # Search right for more matches
+            i = mid + 1
+            while i < len(data):
+                s, e, r = data[i]
+                if s <= ip_hex <= e:
+                    candidates.append((s, e, r))
+                elif s > ip_hex:
+                    break  # No more matches to the right
+                i += 1
+            break
+        elif ip_hex < start_hex:
+            right = mid - 1
+        else:
+            left = mid + 1
+    
+    if not candidates:
+        return None
+    
+    # Return the SMALLEST range (most specific)
+    # Size = end_hex - start_hex (as integers)
+    def range_size(item):
+        try:
+            return int(item[1], 16) - int(item[0], 16)
+        except:
+            return float('inf')
+    
+    smallest = min(candidates, key=range_size)
+    return smallest[2]  # Return the row dict
+
+
+
+def binary_search_range_int(data, ip_int):
+    """Binary search for IP in sorted integer ranges."""
+    if not data:
+        return None
+    
+    left, right = 0, len(data) - 1
+    
+    while left <= right:
+        mid = (left + right) // 2
+        start_int, end_int, row = data[mid]
+        
+        if start_int <= ip_int <= end_int:
+            return row
+        elif ip_int < start_int:
+            right = mid - 1
+        else:
+            left = mid + 1
+    
+    return None
+
+
+def lookup_user_type_db(ip_hex: str) -> Optional[str]:
+    """
+    Fallback DB lookup for user_type when in-memory ranges miss.
+    This protects against transient startup load issues or stale in-memory state.
+    """
+    try:
+        conn = sqlite3.connect(f"file:{DB_FILE}?mode=ro", uri=True, timeout=1.0)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT ip_type
+            FROM user_type
+            WHERE start_ip <= ? AND end_ip >= ?
+            LIMIT 1
+            """,
+            (ip_hex, ip_hex)
+        ).fetchone()
+        conn.close()
+        if row and row["ip_type"]:
+            return row["ip_type"]
+    except Exception as e:
+        print(f"[WARN] user_type DB fallback failed: {e}")
+    return None
+
+
+def sanitize_netname(netname):
+    """Return N/A for non-informative netname values."""
+    if not netname:
+        return "N/A"
+    # Filter out non-informative RIPE placeholder values
+    if "NON-RIPE-NCC-MANAGED" in netname.upper():
+        return "N/A"
+    # Remove escaped quotes/double quotes from the string
+    return netname.replace('"', '').replace('\\', '').strip()
+
+
+def load_all_data():
+    """Load all lookup data into memory at startup."""
+    global city_data, asn_data, asn_new_data, user_type_data, countries, currencies, dial_codes, fallback_cities, vpn_range_data, threat_data, elevation_data
+    
+    print("Loading data into memory...")
+    start = time.time()
+    
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    
+    # Load City_layer (sorted by start_ip)
+    print("  Loading City_layer...")
+    cursor = conn.execute("SELECT * FROM City_layer ORDER BY start_ip")
+    city_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
+    print(f"    Loaded {len(city_data):,} city ranges")
+    
+    # Load ip_ranges (sorted by start_ip)
+    print("  Loading ip_ranges...")
+    cursor = conn.execute("SELECT * FROM ip_ranges ORDER BY start_ip")
+    asn_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
+    print(f"    Loaded {len(asn_data):,} ASN ranges")
+    
+    # Load asn_lookup (sorted by start_ip)
+    print("  Loading asn_lookup...")
+    cursor = conn.execute("SELECT * FROM asn_lookup ORDER BY start_ip")
+    asn_new_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
+    
+    # Load vpn_ranges
+    print("  Loading vpn_ranges...")
+    try:
+        cursor = conn.execute("SELECT start_ip, end_ip FROM vpn_ranges ORDER BY start_ip")
+        # We store minimal data: Just existence implies VPN.
+        vpn_range_data = [(row["start_ip"], row["end_ip"], {"is_vpn": True}) for row in cursor]
+        print(f"    Loaded {len(vpn_range_data):,} VPN ranges")
+    except Exception as e:
+        print(f"    [WARN] Could not load vpn_ranges: {e}")
+        vpn_range_data = []
+
+    # Load elevation_lookup
+    print("  Loading elevation_lookup...")
+    try:
+        cursor = conn.execute("SELECT latitude, longitude, elevation FROM elevation_lookup")
+        elevation_data = {(row["latitude"], row["longitude"]): row["elevation"] for row in cursor}
+        print(f"    Loaded {len(elevation_data):,} elevation points")
+    except Exception as e:
+        print(f"    [WARN] Could not load elevation_lookup: {e}")
+        elevation_data = {}
+
+    # Load user_type
+    print("  Loading user_type...")
+    try:
+        cursor = conn.execute("SELECT start_ip, end_ip, ip_type FROM user_type ORDER BY start_ip")
+        user_type_data = [(row["start_ip"], row["end_ip"], {"user_type": row["ip_type"]}) for row in cursor]
+        print(f"    Loaded {len(user_type_data):,} user_type ranges")
+    except Exception as e:
+        print(f"    [WARN] Could not load user_type: {e}")
+        user_type_data = []
+
+    except Exception as e:
+        print(f"    [WARN] Could not load user_type: {e}")
+        user_type_data = []
+
+    # Load Threat_level
+    print("  Loading Threat_level...")
+    try:
+        cursor = conn.execute("SELECT start_ip, end_ip, threat_level FROM Threat_level ORDER BY start_ip")
+        threat_data = [(row["start_ip"], row["end_ip"], {"threat_level": row["threat_level"]}) for row in cursor]
+        print(f"    Loaded {len(threat_data):,} Threat_level ranges")
+    except Exception as e:
+        print(f"    [WARN] Could not load Threat_level: {e}")
+        threat_data = []
+
+    print(f"    Loaded {len(asn_new_data):,} new ASN ranges")
+    
+    # Load country metadata
+    print("  Loading country metadata...")
+    cursor = conn.execute("SELECT * FROM countries")
+    countries = {row["alpha2"]: dict(row) for row in cursor}
+    
+    cursor = conn.execute("SELECT * FROM country_currency")
+    currencies = {row["country_code"]: dict(row) for row in cursor}
+    
+    cursor = conn.execute("SELECT * FROM country_dial")
+    dial_codes = {row["country_code"]: row["dial_code"] for row in cursor}
+    
+    cursor = conn.execute("SELECT * FROM fallback_city")
+    fallback_cities = {row["country_code"]: row["capital_city"] for row in cursor}
+    
+    conn.close()
+    
+    print(f"Data loaded in {time.time() - start:.2f}s")
+
+
+def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
+    """Fast in-memory IP lookup."""
+    ip = ip.strip()
+    
+    # Check cache first
+    with cache_lock:
+        if ip in ip_cache:
+            return ip_cache[ip].copy()
+    
+    # Validate IP
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+    except ValueError:
+        return None
+    
+    # Fast path for non-public IPs
+    ip_type = get_ip_type_fast(ip_obj)
+    if ip_type != "Public":
+        result = {"ip": ip, "ip_type": ip_type, "found": True}
+        with cache_lock:
+            ip_cache[ip] = result.copy()
+        return result
+    
+    # Prepare parameters
+    ip_hex = ip_obj.packed.hex().zfill(32)
+    ip_int = int(ip_obj) if ip_obj.version == 4 else None
+    
+    # Binary search in memory
+    row_city = binary_search_range_hex(city_data, ip_hex)
+    row_asn = binary_search_range_int(asn_data, ip_int) if ip_int is not None else None
+    row_asn_new = binary_search_range_hex(asn_new_data, ip_hex)
+    row_vpn = binary_search_range_hex(vpn_range_data, ip_hex)
+    row_threat = binary_search_range_hex(threat_data, ip_hex)
+    row_user_type = binary_search_range_hex(user_type_data, ip_hex)
+    if row_user_type is None:
+        fallback_user_type = lookup_user_type_db(ip_hex)
+        if fallback_user_type:
+            row_user_type = {"user_type": fallback_user_type}
+
+    result = None
+    
+    if row_city:
+        try:
+            if ip_obj.version == 4:
+                s_ip = str(ipaddress.ip_address(bytes.fromhex(row_city["start_ip"][-8:])))
+                e_ip = str(ipaddress.ip_address(bytes.fromhex(row_city["end_ip"][-8:])))
+            else:
+                s_ip = str(ipaddress.ip_address(bytes.fromhex(row_city["start_ip"])))
+                e_ip = str(ipaddress.ip_address(bytes.fromhex(row_city["end_ip"])))
+        except:
+            s_ip, e_ip = "N/A", "N/A"
+        
+        result = {
+            "ip": ip, "found": True, "range_start": s_ip, "range_end": e_ip,
+            "country_code": row_city.get("country_iso_code") or "N/A",  # Renamed from country
+            "country_name": row_city.get("country_name") or "N/A",      # Added
+            "is_eu": (row_city.get("country_iso_code") or "") in EU_COUNTRIES,
+            "netname": sanitize_netname(row_city.get("netname")) or "N/A",
+            "org": row_city.get("org") or "N/A",
+            "asn": row_city.get("asn"),
+            "source": row_city.get("source") or "city_layer", 
+            "city": row_city.get("city_name"), 
+            "is_fallback": bool(row_city.get("is_fallback", 0)),
+            "is_vpn": bool(row_city.get("is_vpn", 0)),
+            "region": row_city.get("subdivision_1_name"),
+            "postal": row_city.get("postal_code"), "timezone": row_city.get("time_zone"),
+            "continent": row_city.get("continent_name"),
+            "latitude": row_city.get("latitude"), "longitude": row_city.get("longitude"),
+            "is_multicast": bool(row_city.get("is_Multicast", 0)),
+            "is_crawler": bool(row_city.get("is_crawler", 0)),
+            "ip_type": ip_type,
+            "threat_level": row_threat["threat_level"] if row_threat else "low", # Default to low if not found
+            "user_type": row_user_type["user_type"] if row_user_type else "N/A",
+            "elevation": elevation_data.get((row_city.get("latitude"), row_city.get("longitude"))),
+            "domain": None, # Initialize domain
+            "utc_offset": row_city.get("utc_offset"), # Added for new geolocation data
+            "zip_code": row_city.get("zip_code") # Added for postal codes from iptwo
+        }
+        if row_asn:
+            # Prefer IP range data if City layer lacked it (common for RIPE data)
+            if result["netname"] == "N/A" or result["netname"] is None:
+                result["netname"] = sanitize_netname(row_asn.get("netname"))
+
+            if result["org"] == "N/A" or result["org"] is None:
+                result["org"] = row_asn.get("org")
+                
+            if "ARIN" not in str(result["source"]):
+                result["source"] += "+ripe"
+                
+            if row_asn.get("is_vpn"):
+                result["is_vpn"] = True
+        if row_asn_new:
+            result.update({"asn": row_asn_new.get("asn"), "asn_name": row_asn_new.get("name"), "domain": row_asn_new.get("domain")})
+            if result["org"] == "N/A":
+                result["org"] = row_asn_new.get("org")
+            result["source"] += "+mmdb_asn"
+        # Add datacenter detection
+        result["is_datacenter"] = is_datacenter(result.get("asn"), result.get("asn_name"))
+    
+    elif row_asn:
+        country_code = row_asn.get("country") or ""
+        # Lookup country name
+        c_name = "N/A"
+        if country_code and country_code in countries:
+            c_name = countries[country_code].get("name_long") or countries[country_code].get("name_short")
+
+        result = {
+            "ip": ip, "found": True, "range_start": str(ipaddress.ip_address(row_asn["start_ip"])),
+            "range_end": str(ipaddress.ip_address(row_asn["end_ip"])), 
+            "country_code": row_asn.get("country"), # Renamed
+            "country_name": c_name,                 # Added
+            "is_eu": country_code in EU_COUNTRIES,
+            "netname": sanitize_netname(row_asn.get("netname")), "org": row_asn.get("org"), "source": row_asn.get("source"),
+            "city": None, "region": None, "postal": None, "timezone": None, 
+            "is_vpn": bool(row_asn.get("is_vpn", 0)),
+            "latitude": None, "longitude": None, "ip_type": ip_type,
+            "threat_level": row_threat["threat_level"] if row_threat else "low", # Default to low if not found
+            "domain": None, # Initialize domain
+            "utc_offset": None, # No utc_offset in RIPE data
+            "zip_code": None # No zip_code in RIPE data
+        }
+        if row_asn_new:
+            result.update({"asn": row_asn_new.get("asn"), "asn_name": row_asn_new.get("name"), "domain": row_asn_new.get("domain")})
+            if not result["org"] or result["org"] == "N/A":
+                result["org"] = row_asn_new.get("org")
+            result["source"] += "+mmdb_asn"
+        # Add datacenter detection
+        result["is_datacenter"] = is_datacenter(result.get("asn"), result.get("asn_name"))
+    
+    elif row_asn_new:
+        country_code = row_asn_new.get("country_code") or ""
+        asn_val = row_asn_new.get("asn")
+        asn_name_val = row_asn_new.get("name")
+        result = {
+            "ip": ip, "found": True, "range_start": "N/A", "range_end": "N/A",
+            "country": country_code, "is_eu": country_code in EU_COUNTRIES,
+            "netname": "N/A", "org": row_asn_new.get("org"),
+            "asn": asn_val, "asn_name": asn_name_val, "domain": row_asn_new.get("domain"),
+            "source": "mmdb_asn", "city": None, "region": None, "postal": None, 
+            "timezone": None, "latitude": None, "longitude": None, "ip_type": ip_type,
+            "threat_level": row_threat["threat_level"] if row_threat else "low", # Default to low if not found
+            "is_datacenter": is_datacenter(asn_val, asn_name_val)
+        }
+    
+    # If still no result, try fallback to external API (ip-api.com) for real-time data
+    if not result:
+        print(f"[DEBUG] Local lookup failed for {ip}. Attempting fallback...")
+        try:
+            import httpx
+            # Use a longer timeout to ensure data fetch
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(f"http://ip-api.com/json/{ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as")
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "success":
+                        result = {
+                            "ip": ip, "found": True, "range_start": "N/A", "range_end": "N/A",
+                            "country": data.get("countryCode"), "is_eu": data.get("countryCode") in EU_COUNTRIES,
+                            "netname": "N/A", "org": data.get("org") or data.get("isp"),
+                            "source": "external_api", 
+                            "city": data.get("city"), 
+                            "is_fallback": True,
+                            "region": data.get("regionName"),
+                            "postal": data.get("zip"), "timezone": data.get("timezone"),
+                            "continent": "N/A", "latitude": data.get("lat"), "longitude": data.get("lon"),
+                            "asn": data.get("as", "").split(" ")[0] if data.get("as") else "N/A",
+                            "asn_name": data.get("as", "").split(" ", 1)[1] if data.get("as") and " " in data.get("as") else "N/A",
+                            "is_datacenter": False, # Metadata not available
+                            "user_type": "N/A", # Default for fallback
+                            "threat_level": "low" # Default for fallback
+                        }
+                        result["is_datacenter"] = is_datacenter(result.get("asn"), result.get("asn_name"))
+        except Exception as e:
+            print(f"[WARN] httpx fallback failed: {e}. Trying urllib...")
+            try:
+                import urllib.request
+                import json
+                with urllib.request.urlopen(f"http://ip-api.com/json/{ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as", timeout=5.0) as url:
+                    data = json.loads(url.read().decode())
+                    if data.get("status") == "success":
+                        result = {
+                            "ip": ip, "found": True, "range_start": "N/A", "range_end": "N/A",
+                            "country": data.get("countryCode"), "is_eu": data.get("countryCode") in EU_COUNTRIES,
+                            "netname": "N/A", "org": data.get("org") or data.get("isp"),
+                            "source": "external_api", 
+                            "city": data.get("city"), 
+                            "is_fallback": True,
+                            "region": data.get("regionName"),
+                            "postal": data.get("zip"), "timezone": data.get("timezone"),
+                            "continent": "N/A", "latitude": data.get("lat"), "longitude": data.get("lon"),
+                            "asn": data.get("as", "").split(" ")[0] if data.get("as") else "N/A",
+                            "asn_name": data.get("as", "").split(" ", 1)[1] if data.get("as") and " " in data.get("as") else "N/A",
+                            "is_datacenter": False,
+                            "user_type": "N/A",
+                            "threat_level": "low"
+                        }
+                        result["is_datacenter"] = is_datacenter(result.get("asn"), result.get("asn_name"))
+            except Exception as e2:
+                print(f"[ERROR] All fallbacks failed for {ip}: {e2}")
+
+    # Enrich with country metadata (all in-memory, no locks needed)
+    if result:
+        # Normalize country key usage across different lookup branches.
+        country_code = result.get("country_code") or result.get("country")
+        if country_code and country_code != "N/A":
+            result["country_code"] = country_code
+            if not result.get("country") or result.get("country") == "N/A":
+                result["country"] = country_code
+
+            if country_code in countries:
+                row_country = countries[country_code]
+                result.update({
+                    "country_full": row_country.get("name_short"),
+                    "country_alpha3": row_country.get("alpha3"),
+                    "country_numeric": row_country.get("numeric")
+                })
+
+                if not result.get("country_name") or result.get("country_name") == "N/A":
+                    result["country_name"] = row_country.get("name_long") or row_country.get("name_short") or "N/A"
+
+                c_alpha3 = result.get("country_alpha3")
+                if c_alpha3:
+                    if c_alpha3 in dial_codes:
+                        result["dial_code"] = dial_codes[c_alpha3]
+
+                    if (not result.get("city") or result.get("city") == "N/A") and c_alpha3 in fallback_cities:
+                        result["city"] = fallback_cities[c_alpha3]
+
+            if country_code in currencies:
+                row_curr = currencies[country_code]
+                result.update({
+                    "currency_name": row_curr.get("currency_name"),
+                    "currency_code": row_curr.get("currency_code")
+                })
+
+        # Keep these fields present for consistent landing-page JSON rendering.
+        result.setdefault("currency_code", "N/A")
+        result.setdefault("currency_name", "N/A")
+        
+        # Normalize null values to "N/A"
+        for key, value in result.items():
+            if value is None:
+                result[key] = "N/A"
+        
+        # Apply strict VPN overrides
+        if row_vpn:
+            result["is_vpn"] = True
+            
+        # Fallback for Datacenters
+        # Strict enforcement: If identified as Datacenter, user_type must be Datacenter
+        if result.get("is_datacenter"):
+            result["user_type"] = "Datacenter"
+            
+        # Default threat_level if somehow missing
+        result.setdefault("threat_level", "low")
+
+        with cache_lock:
+            ip_cache[ip] = result.copy()
+        return result
+    
+    result = {"ip": ip, "found": False, "detail": "IP range not found in database"}
+    with cache_lock:
+        ip_cache[ip] = result.copy()
+    return result
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan handler."""
+    global executor
+    load_all_data()
+    executor = ThreadPoolExecutor(max_workers=NUM_WORKERS)
+    yield
+    executor.shutdown(wait=True)
+
+
+app = FastAPI(lifespan=lifespan)
+
+# Security: Rate Limiting
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Security: Trusted Host Middleware
+# ALLOWED_HOSTS = ["example.com", "*.example.com", "localhost", "127.0.0.1"]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"]) # TODO: User should restrict this in prod
+
+# Security: Custom Security Headers Middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        # HSTS (Strict-Transport-Security) - Uncomment for Production with HTTPS
+        # response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Add session middleware (Secure configuration)
+# Note: 'https_only=True' requires HTTPS. 'same_site="lax"' is good for CSRF.
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "fallback-secret-key"), https_only=False, same_site="lax")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+DEFAULT_CHECKOUT_PLAN = "start"
+CHECKOUT_PLAN_CATALOG = {
+    "free": {
+        "name": "Free",
+        "category": "API",
+        "price": "$0",
+        "period": "/mo",
+        "description": "Best for testing and hobby projects.",
+        "cta_label": "Activate Free",
+        "features": [
+            "100 requests per day",
+            "Basic IP geolocation",
+            "Community support"
+        ]
+    },
+    "start": {
+        "name": "Starter",
+        "category": "API",
+        "price": "$7",
+        "period": "/mo",
+        "description": "For small apps that need core enrichment fields.",
+        "cta_label": "Start Free Trial",
+        "features": [
+            "50,000 requests per month",
+            "ip_type, user_type, continent",
+            "country_code, country_name, is_eu",
+            "is_datacenter, netname, city, region, time_zone, lat/lon"
+        ]
+    },
+    "pro": {
+        "name": "Pro",
+        "category": "API",
+        "price": "$15",
+        "period": "/mo",
+        "description": "Everything in Starter plus advanced enrichment fields.",
+        "cta_label": "Upgrade to Pro",
+        "features": [
+            "500,000 requests per month",
+            "Everything in Starter",
+            "asn, asn_name, zip_code, elevation, utc_offset",
+            "VPN detection, crawler detection",
+            "currency_code, currency_name"
+        ]
+    },
+    "max": {
+        "name": "Max",
+        "category": "API",
+        "price": "$25",
+        "period": "/mo",
+        "description": "Everything in Pro with higher request limits and bulk access.",
+        "cta_label": "Upgrade to Max",
+        "features": [
+            "2,000,000 requests per month",
+            "Everything in Pro",
+            "Higher request limit",
+            "Bulk endpoint access"
+        ]
+    },
+    "db_onetime": {
+        "name": "One-Time Purchase",
+        "category": "Database",
+        "price": "$599",
+        "period": "",
+        "description": "One-time payment for full database access.",
+        "cta_label": "Buy One-Time Purchase",
+        "features": [
+            "One-time payment",
+            "Full SQLite download",
+            "Priority support",
+            "No recurring billing"
+        ]
+    },
+    "db_license": {
+        "name": "Annual License",
+        "category": "Database",
+        "price": "$999",
+        "period": "/yr",
+        "description": "Annual database license with monthly updates.",
+        "cta_label": "Get Annual License",
+        "features": [
+            "Monthly database updates",
+            "Annual commercial usage rights",
+            "Business support",
+            "Full SQLite access"
+        ]
+    }
+}
+
+
+def get_checkout_plan_key(plan: Optional[str]) -> str:
+    """Return a valid checkout plan key."""
+    candidate = (plan or "").strip().lower()
+    if candidate in CHECKOUT_PLAN_CATALOG:
+        return candidate
+    return DEFAULT_CHECKOUT_PLAN
+
+
+def safe_internal_path(target: Optional[str], default: str = "/") -> str:
+    """Only allow local in-app redirect paths."""
+    value = (target or "").strip()
+    if not value:
+        return default
+    if not value.startswith("/") or value.startswith("//"):
+        return default
+    if "\r" in value or "\n" in value:
+        return default
+    return value
+
+
+def signin_with_next_url(next_path: str) -> str:
+    """Build sign-in URL with safe encoded next path."""
+    safe_next = safe_internal_path(next_path, "/")
+    return f"/signin?next={quote(safe_next, safe='')}"
+
+
+async def get_full_ip_info(ip: str) -> Optional[Dict[str, Any]]:
+    """Async wrapper for in-memory lookup."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, sync_get_ip_info, ip)
+
+
+@app.get("/docs", response_class=HTMLResponse)
+async def docs(request: Request):
+    return templates.TemplateResponse("docs.html", {"request": request})
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    client_ip = request.client.host or ""
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        client_ip = x_forwarded_for.split(",")[0].strip()
+    
+    user = request.session.get("user")
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "client_ip": client_ip,
+        "user": user
+    })
+
+
+@app.get("/pricing", response_class=HTMLResponse)
+async def pricing(request: Request):
+    user = request.session.get("user")
+    return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
+
+
+@app.get("/start-checkout")
+async def start_checkout(request: Request, plan: str = DEFAULT_CHECKOUT_PLAN):
+    """Route plan CTA clicks through auth, then redirect to payment."""
+    plan_key = get_checkout_plan_key(plan)
+    payment_target = f"/payment?{urlencode({'plan': plan_key})}"
+    user = request.session.get("user")
+
+    if not user:
+        return RedirectResponse(url=signin_with_next_url(payment_target), status_code=status.HTTP_303_SEE_OTHER)
+
+    return RedirectResponse(url=payment_target, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/payment", response_class=HTMLResponse)
+async def payment_page(request: Request, plan: str = DEFAULT_CHECKOUT_PLAN):
+    """Render payment page for authenticated users."""
+    user = request.session.get("user")
+    plan_key = get_checkout_plan_key(plan)
+    payment_target = f"/payment?{urlencode({'plan': plan_key})}"
+
+    if not user:
+        return RedirectResponse(url=signin_with_next_url(payment_target), status_code=status.HTTP_303_SEE_OTHER)
+
+    selected_plan = CHECKOUT_PLAN_CATALOG[plan_key]
+    plan_cards = [
+        {"key": key, **value}
+        for key, value in CHECKOUT_PLAN_CATALOG.items()
+    ]
+    return templates.TemplateResponse(
+        "payment.html",
+        {
+            "request": request,
+            "user": user,
+            "selected_plan_key": plan_key,
+            "selected_plan": selected_plan,
+            "plan_cards": plan_cards
+        }
+    )
+
+
+@app.get("/contact", response_class=HTMLResponse)
+async def contact(request: Request):
+    user = request.session.get("user")
+    return templates.TemplateResponse("contact.html", {"request": request, "user": user})
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request):
+    user = request.session.get("user")
+    return templates.TemplateResponse("privacy.html", {"request": request, "user": user})
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request):
+    user = request.session.get("user")
+    return templates.TemplateResponse("terms.html", {"request": request, "user": user})
+
+
+# --- Authentication Routes ---
+
+# Helper to decide response type
+def is_json_request(request: Request):
+    accept = request.headers.get("accept", "")
+    return "application/json" in accept
+
+@app.get("/api/user")
+async def get_current_user(request: Request):
+    """Return current logged in user or null."""
+    return request.session.get("user") or None
+
+
+@app.get("/signup", response_class=HTMLResponse)
+async def signup_page(request: Request, next: str = "/"):
+    next_path = safe_internal_path(next, "/")
+    return templates.TemplateResponse(
+        "signup.html",
+        {
+            "request": request,
+            "next": next_path,
+            "next_encoded": quote(next_path, safe="")
+        }
+    )
+
+
+@app.post("/signup")
+@limiter.limit("3/hour")
+async def signup_action(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    next: str = Form("/")
+):
+    next_path = safe_internal_path(next, "/")
+    user = auth.create_user(email, password, name)
+    
+    if is_json_request(request):
+        if not user:
+            return Response(content='{"error": "Email already registered."}', media_type="application/json", status_code=400)
+        
+        # Send verification email
+        await auth.send_verification_email(email, user['verification_code'])
+        return {"success": True, "message": "Verification code sent.", "email": email, "next": next_path}
+
+    if not user:
+        return templates.TemplateResponse(
+            "signup.html",
+            {
+                "request": request,
+                "error": "Email already registered.",
+                "next": next_path,
+                "next_encoded": quote(next_path, safe="")
+            }
+        )
+    
+    # Send verification email
+    sent = await auth.send_verification_email(email, user['verification_code'])
+    
+    redirect_params = {"email": email, "next": next_path}
+    if not sent:
+        # Debug fallback: Pass code in URL if SMTP fails
+        redirect_params["debug_code"] = user["verification_code"]
+    redirect_url = f"/verify?{urlencode(redirect_params)}"
+    
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/verify", response_class=HTMLResponse)
+async def verify_page(request: Request, email: str = "", debug_code: str = "", next: str = "/"):
+    next_path = safe_internal_path(next, "/")
+    return templates.TemplateResponse(
+        "verify.html",
+        {
+            "request": request,
+            "email": email,
+            "debug_code": debug_code,
+            "next": next_path,
+            "next_encoded": quote(next_path, safe="")
+        }
+    )
+
+
+@app.post("/verify")
+async def verify_action(
+    request: Request,
+    email: str = Form(...),
+    code: str = Form(...),
+    next: str = Form("/")
+):
+    next_path = safe_internal_path(next, "/")
+    success = auth.verify_user_email(email, code)
+    
+    if is_json_request(request):
+        if success:
+            user = auth.get_user_by_email(email)
+            request.session["user"] = {"id": user["id"], "name": user["name"], "email": user["email"]}
+            return {"success": True, "user": request.session["user"], "next": next_path}
+        else:
+             return Response(content='{"error": "Invalid verification code."}', media_type="application/json", status_code=400)
+
+    if success:
+        # Verification success - Login the user
+        user = auth.get_user_by_email(email)
+        request.session["user"] = {"id": user["id"], "name": user["name"], "email": user["email"]}
+        return RedirectResponse(url=next_path, status_code=status.HTTP_303_SEE_OTHER)
+    else:
+        return templates.TemplateResponse(
+            "verify.html",
+            {
+                "request": request,
+                "email": email,
+                "next": next_path,
+                "next_encoded": quote(next_path, safe=""),
+                "error": "Invalid verification code."
+            }
+        )
+
+
+@app.get("/signin", response_class=HTMLResponse)
+async def signin_page(request: Request, next: str = "/"):
+    next_path = safe_internal_path(next, "/")
+    if request.session.get("user"):
+        return RedirectResponse(url=next_path, status_code=status.HTTP_303_SEE_OTHER)
+
+    return templates.TemplateResponse(
+        "signin.html",
+        {
+            "request": request,
+            "next": next_path,
+            "next_encoded": quote(next_path, safe="")
+        }
+    )
+
+
+@app.post("/signin")
+@limiter.limit("5/minute")
+async def signin_action(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    next: str = Form("/")
+):
+    next_path = safe_internal_path(next, "/")
+    user = auth.authenticate_user(email, password)
+    
+    if is_json_request(request):
+        if not user:
+             return Response(content='{"error": "Invalid credentials."}', media_type="application/json", status_code=401)
+        request.session["user"] = user
+        return {"success": True, "user": user, "redirect_to": next_path}
+
+    if not user:
+        return templates.TemplateResponse(
+            "signin.html",
+            {
+                "request": request,
+                "next": next_path,
+                "next_encoded": quote(next_path, safe=""),
+                "error": "Invalid credentials."
+            }
+        )
+    
+    request.session["user"] = user
+    return RedirectResponse(url=next_path, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/signout")
+async def signout(request: Request):
+    request.session.pop("user", None)
+    if is_json_request(request):
+        return {"success": True}
+    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/auth/google")
+async def google_login(request: Request):
+    # Dynamic redirect URI based on request (handles localhost/127.0.0.1 automatic switching)
+    redirect_uri = request.url_for('google_callback')
+    print(f"DEBUG: sending redirect_uri={redirect_uri}")
+    return await auth.oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/google/callback")
+async def google_callback(request: Request):
+    try:
+        token = await auth.oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        if not user_info:
+            # Try to fetch userinfo manually if not in token
+            resp = await auth.oauth.google.get('https://www.googleapis.com/oauth2/v3/userinfo', token=token)
+            user_info = resp.json()
+            
+        user = auth.create_or_get_google_user(
+            email=user_info['email'],
+            google_id=user_info['sub'],
+            name=user_info.get('name', user_info['email'].split('@')[0])
+        )
+        
+        request.session["user"] = {"id": user["id"], "name": user["name"], "email": user["email"]}
+        # Redirect to React Frontend (Dev)
+        return RedirectResponse(url="http://localhost:5173/", status_code=status.HTTP_303_SEE_OTHER)
+    except Exception as e:
+        print(f"OAuth Error: {e}")
+        return RedirectResponse(url="/signin?error=OAuth+Failed", status_code=status.HTTP_303_SEE_OTHER)
+
+
+def save_elevation_to_db(lat: float, lon: float, elev: float):
+    """Save fetched elevation to database (runs in background thread)."""
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        conn.execute("INSERT OR REPLACE INTO elevation_lookup (latitude, longitude, elevation) VALUES (?, ?, ?)", (lat, lon, elev))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Failed to save elevation to DB: {e}")
+
+async def lazy_fetch_elevation(lat: float, lon: float) -> Optional[float]:
+    """Fetch elevation from API on cache miss and persist to DB."""
+    # Double check memory (race condition optimization)
+    if (lat, lon) in elevation_data:
+        return elevation_data[(lat, lon)]
+            
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            url = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
+            resp = await client.get(url)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                if "elevation" in data and data["elevation"]:
+                    elev = float(data["elevation"][0])
+                    
+                    # Update in-memory cache
+                    elevation_data[(lat, lon)] = elev
+                    
+                    # Persist to DB in background
+                    asyncio.get_event_loop().run_in_executor(None, save_elevation_to_db, lat, lon, elev)
+                    
+                    return elev
+            elif resp.status_code == 429:
+                print(f"[WARN] Open-Meteo rate limit hit for {lat},{lon}")
+    except Exception as e:
+        print(f"[ERR] Lazy fetch failed: {e}")
+        
+    return None
+
+@app.get("/api/check")
+@limiter.limit("100/minute")
+async def check_ip(request: Request, ip: str, response: Response, api_key: str = None):
+    # Check API Key or Session (Web Auth)
+    # ---------------------------------------------------------
+    user_session = request.session.get("user")
+    
+    if api_key:
+        api_key_status = check_api_key_limit(api_key)
+        if not api_key_status["allowed"]:
+            return Response(content=f'{{"error": "{api_key_status["error"]}"}}', media_type="application/json", status_code=403)
+    elif user_session:
+        # Logged in via Web, allow request (maybe limit if needed, but for now allow)
+        pass 
+    else:
+        # Not logged in, no API key -> ALLOW access for Live Lookup (Public Feature)
+        pass 
+
+    # 1. Check Cache
+    if ip in ip_cache:
+        return ip_cache[ip]
+
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    start_time = time.time()
+    info = await get_full_ip_info(ip)
+    process_time = (time.time() - start_time) * 1000
+    
+    if info is None:
+        raise HTTPException(status_code=400, detail="Invalid IP address format")
+    
+    
+    # Lazy load elevation if missing
+    if info.get("elevation") is None and info.get("latitude") and info.get("longitude"):
+        info["elevation"] = await lazy_fetch_elevation(info["latitude"], info["longitude"])
+    
+    info["latency_server"] = round(process_time, 2)
+    with cache_lock:
+        ip_cache[ip] = info.copy()
+    return info
+
+
+# -----------------------------------------------------------------------------
+# Analytics API Endpoints
+# -----------------------------------------------------------------------------
+
+class IngestEvent(BaseModel):
+    ip: str
+    timestamp: str
+    event_type: Optional[str] = "request"
+    path: Optional[str] = None
+    method: Optional[str] = None
+    status_code: Optional[int] = None
+    metadata: Optional[dict] = None
+
+
+def get_api_key(request: Request) -> Optional[str]:
+    """Extract API key from request headers."""
+    return request.headers.get("X-API-Key") or request.headers.get("Authorization", "").replace("Bearer ", "")
+
+
+@app.post("/v1/analytics/ingest")
+async def analytics_ingest(event: IngestEvent, request: Request):
+    """Ingest an analytics event."""
+    api_key = get_api_key(request)
+    if not api_key:
+        raise HTTPException(status_code=401, detail="API key required. Use X-API-Key header.")
+    
+    # Validate API key
+    key_info = analytics.validate_api_key(api_key)
+    if not key_info:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    project_id = key_info["project_id"]
+    
+    # Enrich the IP using existing pipeline
+    ip_info = await get_full_ip_info(event.ip)
+    if not ip_info:
+        ip_info = {"found": False}
+    
+    # Ingest the event
+    result = analytics.ingest_event(
+        project_id=project_id,
+        ip=event.ip,
+        timestamp=event.timestamp,
+        ip_info=ip_info,
+        path=event.path,
+        method=event.method,
+        status_code=event.status_code,
+        metadata=event.metadata
+    )
+    
+    return result
+
+
+@app.get("/v1/analytics/overview")
+async def analytics_overview(request: Request, days: int = 7):
+    """Get analytics overview for the authenticated user's project."""
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Get user's first project (or specified project)
+    projects = analytics.get_user_projects(user["id"])
+    if not projects:
+        return {"total_requests": 0, "unique_ips": 0, "country_count": 0, "asn_count": 0, "datacenter_percent": 0, "vpn_percent": 0}
+    
+    project_id = projects[0]["id"]
+    return analytics.get_analytics_overview(project_id, days)
+
+
+@app.get("/v1/analytics/timeseries")
+async def analytics_timeseries(request: Request, days: int = 7, interval: str = "hour"):
+    """Get time series data."""
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    projects = analytics.get_user_projects(user["id"])
+    if not projects:
+        return []
+    
+    project_id = projects[0]["id"]
+    return analytics.get_timeseries(project_id, interval, days)
+
+
+@app.get("/v1/analytics/countries")
+async def analytics_countries(request: Request, days: int = 7, limit: int = 10):
+    """Get top countries."""
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    projects = analytics.get_user_projects(user["id"])
+    if not projects:
+        return []
+    
+    project_id = projects[0]["id"]
+    return analytics.get_top_countries(project_id, days, limit)
+
+
+@app.get("/v1/analytics/cities")
+async def analytics_cities(request: Request, days: int = 7, limit: int = 10):
+    """Get top cities."""
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    projects = analytics.get_user_projects(user["id"])
+    if not projects:
+        return []
+    
+    project_id = projects[0]["id"]
+    return analytics.get_top_cities(project_id, days, limit)
+
+
+@app.get("/v1/analytics/asns")
+async def analytics_asns(request: Request, days: int = 7, limit: int = 10):
+    """Get top ASNs."""
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    projects = analytics.get_user_projects(user["id"])
+    if not projects:
+        return []
+    
+    project_id = projects[0]["id"]
+    return analytics.get_top_asns(project_id, days, limit)
+
+
+@app.get("/v1/analytics/risk")
+async def analytics_risk(request: Request, days: int = 7):
+    """Get VPN/datacenter/residential breakdown."""
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    projects = analytics.get_user_projects(user["id"])
+    if not projects:
+        return {"vpn": 0, "datacenter": 0, "residential": 0, "mobile": 0, "other": 0}
+    
+    project_id = projects[0]["id"]
+    return analytics.get_risk_breakdown(project_id, days)
+
+
+# -----------------------------------------------------------------------------
+# Dashboard Routes
+# -----------------------------------------------------------------------------
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request):
+    """Analytics dashboard page."""
+    try:
+        user = request.session.get("user")
+        project = None
+        api_key = None
+        
+        today_usage = 0
+        limit = 100
+        plan = "free"
+        
+        if user:
+            # Fetch fresh user data from DB
+            conn = auth.get_db()
+            user_row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+            conn.close()
+            
+            if user_row:
+                # Update session user with fresh data
+                user = dict(user_row)
+                api_key = user.get("api_key")
+                today_usage = user.get("api_requests_count", 0)
+                plan = user.get("plan", "free")
+                
+                # Reset usage if new day (basic check)
+                last_date = user.get("last_api_usage_date")
+                today = datetime.utcnow().strftime("%Y-%m-%d")
+                if last_date != today:
+                    today_usage = 0
+                
+                # Get limit based on plan
+                limits = analytics.get_tier_limits(plan)
+                limit = limits.get("monthly_requests", 100) # Default to 100/day equivalent if monthly not set
+                if plan == "free":
+                    limit = 100 # Explict 100/day for free
+                else:
+                     limit = limits.get("monthly_requests") # Show monthly for others
+
+            projects = analytics.get_user_projects(user["id"])
+            if projects:
+                project = projects[0]
+
+        # Fetch user licenses
+        user_licenses = []
+        if user:
+            user_licenses = licenses.get_user_licenses(user['id'])
+
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "user": user,
+            "project": project,
+            "api_key": api_key,
+            "licenses": user_licenses,
+            "today_usage": today_usage,
+            "limit": limit,
+            "plan": plan
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HTMLResponse(content=f"Internal Server Error: {e}", status_code=500)
+
+
+
+@app.post("/dashboard/create-project")
+async def create_project(request: Request, project_name: str = Form(...)):
+    """Create a new analytics project."""
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/signin", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # Check project limit
+    projects = analytics.get_user_projects(user["id"])
+    user_data = auth.get_user_by_email(user["email"])
+    plan = user_data.get("plan", "free") if user_data else "free"
+    limits = analytics.get_tier_limits(plan)
+    
+    if len(projects) >= limits["max_projects"]:
+        return RedirectResponse(url="/dashboard?error=project_limit", status_code=status.HTTP_303_SEE_OTHER)
+    
+    analytics.create_project(user["id"], project_name)
+    return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+# --- License System Endpoints ---
+
+
+
+@app.post("/api/licenses/create-demo")
+async def create_demo_license(request: Request):
+    """Create a demo license for the current user."""
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+        
+    # Check if user already has a license
+    existing = licenses.get_user_licenses(user['id'])
+    if existing:
+        return {"key": existing[0]['license_key'], "status": "existing"}
+        
+    key = licenses.create_license(user['id'], plan_type='demo', duration_days=30)
+    return {"key": key, "status": "created"}
+
+
+
+def check_api_key_limit(api_key: str) -> dict:
+    """
+    Validates API key and enforces 100 req/day limit.
+    Returns: {"allowed": bool, "error": str}
+    """
+    if not api_key:
+        return {"allowed": False, "error": "Sign in required to use API."}
+    
+    conn = auth.get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id, api_requests_count, last_api_usage_date FROM users WHERE api_key = ?", (api_key,))
+    user = cursor.fetchone()
+    
+    if not user:
+        conn.close()
+        return {"allowed": False, "error": "Invalid API Key."}
+    
+    user_id = user['id']
+    count = user['api_requests_count']
+    last_date = user['last_api_usage_date']
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    # Reset counter if new day
+    if last_date != today:
+        count = 0
+    
+    if count >= 100:
+        conn.close()
+        return {"allowed": False, "error": "Daily limit of 100 requests exceeded."}
+    
+    # Increment and update
+    cursor.execute(
+        "UPDATE users SET api_requests_count = ?, last_api_usage_date = ? WHERE id = ?",
+        (count + 1, today, user_id)
+    )
+    conn.commit()
+    conn.close()
+    
+    return {"allowed": True, "error": None}
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

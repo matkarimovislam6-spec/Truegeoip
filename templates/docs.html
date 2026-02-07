@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation | TrueGeoIP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="/static/style.css?v=20260206-legal2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .docs-container {
+            max-width: 1000px;
+            margin: 100px auto 4rem;
+            padding: 0 1.5rem;
+        }
+
+        .docs-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: none;
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .docs-header {
+            margin-bottom: 2rem;
+        }
+
+        .docs-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .endpoint-badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .code-block {
+            background: rgba(255, 122, 0, 0.12);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 1rem 0;
+            border: 1px solid var(--glass-border);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="Logo" style="height: 32px; width: auto;">
+                    TrueGeoIP
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/dashboard">Analytics</a>
+                <a href="/docs" class="active">Docs</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-container">
+        <div class="docs-header">
+            <h1>API Documentation</h1>
+            <p>Complete reference for the TrueGeoIP API.</p>
+        </div>
+
+        <div class="docs-card">
+            <h2>Authentication</h2>
+            <p>Authenticate your requests using the `X-API-Key` header.</p>
+            <div class="code-block">
+                Authorization: Bearer YOUR_API_KEY
+            </div>
+        </div>
+
+        <div class="docs-card">
+            <h2>Endpoints</h2>
+
+            <h3>Get IP Info</h3>
+            <p><span class="endpoint-badge">GET</span> /api/ip/{ip_address}</p>
+            <p>Returns detailed geolocation and ASN data for a specific IP.</p>
+
+            <div class="code-block">
+                curl https://api.truegeoip.com/api/ip/8.8.8.8 \
+                -H "Authorization: Bearer YOUR_KEY"
+            </div>
+
+            <h4>Response</h4>
+            <div class="code-block">
+                {
+                "ip": "8.8.8.8",
+                "country_code": "US",
+                "country_name": "United States",
+                "city": "Mountain View",
+                "asn": 15169,
+                "org": "Google LLC",
+                "user_type": "Datacenter"
+                }
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container footer-content">
+            <p>&copy; 2026 TrueGeoIP.</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

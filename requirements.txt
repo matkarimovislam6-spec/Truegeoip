@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+jinja2
+aiosqlite
+authlib
+itsdangerous
+python-dotenv
+passlib[bcrypt]
+httpx
+python-multipart
+cachetools
+maxminddb
+slowapi
+gunicorn
+aiosmtplib

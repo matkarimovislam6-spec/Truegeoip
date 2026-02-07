@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrueGeoIP | AntiGravity</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="/static/style.css?v=20260207-threat">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="TrueGeoIP Logo" style="height: 32px; width: auto;">
+                    TrueGeoIP
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="/dashboard">Analytics</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/contact">Contact</a>
+            </div>
+
+            {% if user %}
+            <div class="profile-menu">
+                <a href="#" class="profile-avatar-btn">{{ user.name[:1] }}</a>
+                <div class="profile-dropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-header-avatar">{{ user.name[:1] }}</div>
+                        <div class="dropdown-header-info">
+                            <div class="dropdown-header-name">{{ user.name }}</div>
+                            <div class="dropdown-header-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-section">
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-user"></i> Profile
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-key"></i> API Keys
+                        </a>
+                        <a href="/pricing" class="dropdown-item">
+                            <i class="fas fa-credit-card"></i> Billing
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-section">
+                        <a href="/signout" class="dropdown-item danger">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="display: flex; gap: 0.75rem;">
+                <a href="/signin"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; display: flex; align-items: center;">Sign
+                    In</a>
+                <a href="/signup" class="btn-primary">Get Started</a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>Precise IP Solution for <span class="gradient-text">Your Business</span></h1>
+                <p class="hero-subtitle">
+                    Enrich your analytics, prevent fraud, and personalize content with carrier-grade IP geolocation and
+                    ASN data. <br>
+                    <strong>Full IPv4 & IPv6 coverage. Ultra-low latency (< 10ms). No logging.</strong>
+                </p>
+                <div class="hero-cta">
+                    <a href="/docs" class="btn-secondary">View Documentation</a>
+                    <a href="#features" class="btn-text">Learn more →</a>
+                </div>
+
+                <!-- Compact Map Card -->
+                <div class="hero-map-card">
+                    <div class="map-info-compact">
+                        <span id="mapTitle">Your Location</span>
+                        <span id="mapSubtitle" class="map-subtitle">Detecting...</span>
+                    </div>
+                    <div id="map" class="leaflet-map-compact"></div>
+                </div>
+            </div>
+
+            <!-- Live Demo Card (Functional) -->
+            <div class="hero-demo">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="header-main">
+                            <h2>Live Lookup</h2>
+                            <div id="resultStatus" class="status-indicator hidden">
+                                <span class="status-dot"></span>
+                                <span class="status-text">Active</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group" data-client-ip="{{ client_ip }}">
+                        <input type="text" id="ipInput" placeholder="Enter IP address (e.g., 8.8.8.8)"
+                            autocomplete="off">
+                        <button id="checkBtn">
+                            <span>Search</span>
+                        </button>
+                    </div>
+
+                    <div id="message"></div>
+
+                    <div id="resultContainer" class="result-container">
+                        <!-- JSON Output Section -->
+                        <div class="json-container">
+                            <pre><code id="jsonOutput"></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Choose Us Section -->
+    <section class="why-choose-us">
+        <div class="container">
+            <div class="wcu-grid">
+                <!-- Visual Showcase -->
+                <div class="wcu-visual">
+                    <div class="macbook">
+                        <div class="screen">
+                            <div class="viewport">
+                                <img src="/static/img/dashboard-preview.png" alt="Analytics Dashboard Interface">
+                            </div>
+                            <div class="notch"></div>
+                        </div>
+                        <div class="base"></div>
+                    </div>
+                </div>
+
+                <!-- Text Content -->
+                <div class="wcu-content">
+                    <h2 class="section-title text-left">Insightful Data. <br><span class="gradient-text">Unbeatable
+                            Value.</span></h2>
+                    <p class="wcu-desc">
+                        Stop overpaying for basic IP data. We provide premium, carrier-grade intelligence with a full
+                        analytical suite included.
+                    </p>
+
+                    <div class="value-propositions">
+                        <div class="value-item">
+                            <div class="value-icon">♾️</div>
+                            <div class="value-text">
+                                <strong>Unlimited Requests</strong>
+                                <span>No hard caps or overage fees.</span>
+                            </div>
+                        </div>
+                        <div class="value-item">
+                            <div class="value-icon">📉</div>
+                            <div class="value-text">
+                                <strong>Cost Effective</strong>
+                                <span>Significantly cheaper than competitors.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <ul class="wcu-features">
+                        <li>
+                            <div class="icon-box"><i class="fas fa-eye-slash"></i></div>
+                            <div>
+                                <strong>Strict Privacy</strong>
+                                <span>No logging. Your queries are yours alone.</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="icon-box"><i class="fas fa-chart-pie"></i></div>
+                            <div>
+                                <strong>Embedded Visuals</strong>
+                                <span>Visualize traffic, VPN usage, and more instantly.</span>
+                            </div>
+                        </li>
+                    </ul>
+
+                    <a href="/dashboard" class="btn-primary mt-4">Explore Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Why choose <span class="gradient-text">TrueGeoIP?</span></h2>
+            <div class="feature-grid">
+                <!-- Security First -->
+                <div class="feature-card">
+                    <div class="icon">🛡️</div>
+                    <h3>Stop Fraud at the Source</h3>
+                    <p>Instantly route or block traffic based on <strong>ASN intelligence</strong>. Identify VPNs,
+                        datacenters, and high-risk IPs before they abuse your platform.</p>
+                </div>
+                <!-- Marketing Second -->
+                <div class="feature-card">
+                    <div class="icon">🎯</div>
+                    <h3>Convert via Localization</h3>
+                    <p>Serve the right content to the right audience. Use <strong>estimated regional</strong> data to
+                        pre-fill currencies, languages, and timezones for a friction-free experience.</p>
+                </div>
+                <!-- Analytics Third -->
+                <div class="feature-card">
+                    <div class="icon">📊</div>
+                    <h3>Uncover Hidden Trends</h3>
+                    <p>Go beyond simple hit counters. Analyze traffic quality, detect botnets by ASN, and visualize
+                        global user distribution with our <strong>embedded, real-time dashboards</strong>.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container footer-content">
+            <p>&copy; 2026 TrueGeoIP</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="/static/script.js?v=20260207-threat"></script>
+</body>
+
+</html>

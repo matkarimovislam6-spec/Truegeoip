@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment | TrueGeoIP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=20260206-legal2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .payment-hero {
+            padding: 130px 0 40px;
+            background: var(--hero-gradient);
+            text-align: center;
+        }
+
+        .payment-hero h1 {
+            font-size: 2.7rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .payment-subtitle {
+            margin: 0 auto;
+            max-width: 760px;
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        .security-row {
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .security-pill {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 0.5rem 0.95rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .security-pill i {
+            color: var(--accent-primary);
+            font-size: 0.85rem;
+        }
+
+        .payment-section {
+            padding: 2rem 0 5rem;
+        }
+
+        .payment-layout {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 1.2rem;
+            align-items: start;
+        }
+
+        .payment-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 1.4rem;
+            box-shadow: none;
+        }
+
+        .payment-card h3 {
+            font-size: 1.15rem;
+            margin-bottom: 1rem;
+        }
+
+        .grid-two {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.85rem;
+        }
+
+        .field-group {
+            margin-bottom: 0.9rem;
+        }
+
+        .field-group label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.86rem;
+            margin-bottom: 0.42rem;
+        }
+
+        .field-group input,
+        .field-group select {
+            width: 100%;
+            padding: 0.72rem 0.82rem;
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
+            background: var(--input-bg);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+        }
+
+        .field-help {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.45rem;
+        }
+
+        .summary-top {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .plan-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid var(--card-border);
+            color: var(--text-secondary);
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.85rem;
+        }
+
+        .summary-plan-name {
+            font-size: 1.45rem;
+            margin-bottom: 0.35rem;
+            color: var(--text-primary);
+        }
+
+        .summary-price {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 0.4rem;
+            color: var(--text-primary);
+        }
+
+        .summary-price span {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-left: 0.15rem;
+        }
+
+        .summary-desc {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .summary-features {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .summary-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .summary-features i {
+            color: var(--success-fg);
+            margin-top: 0.14rem;
+            font-size: 0.88rem;
+        }
+
+        .summary-total {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .summary-total-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .summary-total-value {
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
+        .plan-switch-grid {
+            margin-top: 0.95rem;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.6rem;
+        }
+
+        .plan-switch-item {
+            text-decoration: none;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 0.75rem;
+            transition: none;
+        }
+
+        .plan-switch-item.active {
+            border-color: var(--accent-primary);
+            box-shadow: none;
+        }
+
+        .plan-switch-name {
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .plan-switch-price {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+        }
+
+        .payment-actions {
+            margin-top: 1.1rem;
+            display: grid;
+            gap: 0.65rem;
+        }
+
+        .secure-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 0.9rem 1rem;
+            border-radius: 10px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .btn-soft {
+            background: var(--input-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+        }
+
+        @media (max-width: 1100px) {
+            .payment-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .payment-hero {
+                padding-top: 110px;
+            }
+
+            .payment-hero h1 {
+                font-size: 2.1rem;
+            }
+
+            .grid-two {
+                grid-template-columns: 1fr;
+            }
+
+            .plan-switch-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="TrueGeoIP Logo" style="height: 32px; width: auto;">
+                    TrueGeoIP
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/#features">Features</a>
+                <a href="/dashboard">Analytics</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/contact">Contact</a>
+            </div>
+            {% if user %}
+            <div class="profile-menu">
+                <a href="#" class="profile-avatar-btn">{{ user.name[:1] }}</a>
+                <div class="profile-dropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-header-avatar">{{ user.name[:1] }}</div>
+                        <div class="dropdown-header-info">
+                            <div class="dropdown-header-name">{{ user.name }}</div>
+                            <div class="dropdown-header-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-section">
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-user"></i> Profile
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-key"></i> API Keys
+                        </a>
+                        <a href="/payment?plan={{ selected_plan_key }}" class="dropdown-item">
+                            <i class="fas fa-credit-card"></i> Billing
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-section">
+                        <a href="/signout" class="dropdown-item danger">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="display: flex; gap: 0.75rem;">
+                <a href="/signin"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; display: flex; align-items: center;">Sign
+                    In</a>
+                <a href="/signup" class="btn-primary">Get Started</a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <section class="payment-hero">
+        <div class="container">
+            <h1>Secure <span class="gradient-text">Checkout</span></h1>
+            <p class="payment-subtitle">You are one step away from activating your plan. Your request is routed through
+                an encrypted flow and plan details are pre-filled for faster checkout.</p>
+            <div class="security-row">
+                <span class="security-pill"><i class="fas fa-lock"></i> TLS Encrypted</span>
+                <span class="security-pill"><i class="fas fa-shield-alt"></i> Fraud-Resistant</span>
+                <span class="security-pill"><i class="fas fa-clock"></i> Instant Activation</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="payment-section">
+        <div class="container payment-layout">
+            <div>
+                <div class="payment-card">
+                    <h3>Billing Details</h3>
+                    <div class="grid-two">
+                        <div class="field-group">
+                            <label>Full Name</label>
+                            <input type="text" value="{{ user.name }}" readonly>
+                        </div>
+                        <div class="field-group">
+                            <label>Work Email</label>
+                            <input type="email" value="{{ user.email }}" readonly>
+                        </div>
+                    </div>
+                    <div class="grid-two">
+                        <div class="field-group">
+                            <label>Company (Optional)</label>
+                            <input type="text" placeholder="Your company name">
+                        </div>
+                        <div class="field-group">
+                            <label>Country</label>
+                            <select>
+                                <option selected>United States</option>
+                                <option>United Kingdom</option>
+                                <option>Australia</option>
+                                <option>Germany</option>
+                                <option>Canada</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label>Promo Code (Optional)</label>
+                        <input type="text" placeholder="Enter promo code">
+                    </div>
+                    <p class="field-help">No sensitive card details are stored on this page. Secure processor handoff is
+                        performed at the final step.</p>
+
+                    <div class="payment-actions">
+                        <a href="/contact?topic=billing&plan={{ selected_plan_key }}" class="btn-primary secure-btn">
+                            <i class="fas fa-lock"></i> Continue to Secure Payment
+                        </a>
+                        <a href="/pricing" class="secure-btn btn-soft">
+                            <i class="fas fa-arrow-left"></i> Back to Pricing
+                        </a>
+                    </div>
+                </div>
+
+                <div class="payment-card" style="margin-top: 1rem;">
+                    <h3>Choose Another Plan</h3>
+                    <div class="plan-switch-grid">
+                        {% for plan in plan_cards %}
+                        <a href="/payment?plan={{ plan.key }}"
+                            class="plan-switch-item {% if plan.key == selected_plan_key %}active{% endif %}">
+                            <div class="plan-switch-name">{{ plan.name }}</div>
+                            <div class="plan-switch-price">{{ plan.price }}{{ plan.period }}</div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <aside class="payment-card">
+                <div class="summary-top">
+                    <span class="plan-type"><i class="fas fa-bolt"></i> {{ selected_plan.category }} Plan</span>
+                    <h2 class="summary-plan-name">{{ selected_plan.name }}</h2>
+                    <div class="summary-price">{{ selected_plan.price }}<span>{{ selected_plan.period }}</span></div>
+                    <p class="summary-desc">{{ selected_plan.description }}</p>
+                </div>
+
+                <ul class="summary-features">
+                    {% for feature in selected_plan.features %}
+                    <li><i class="fas fa-check-circle"></i> {{ feature }}</li>
+                    {% endfor %}
+                </ul>
+
+                <div class="summary-total">
+                    <span class="summary-total-label">Plan total</span>
+                    <span class="summary-total-value">{{ selected_plan.price }}{{ selected_plan.period }}</span>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container footer-content">
+            <p>&copy; 2026 TrueGeoIP</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

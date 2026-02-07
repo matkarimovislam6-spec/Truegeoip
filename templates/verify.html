@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email | TrueGeoIP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=20260206-legal2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="IP Intelligence Logo" style="height: 32px; width: auto;">
+                    IP Intelligence
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container"
+        style="display: flex; justify-content: center; align-items: center; min-height: 80vh; padding-top: 80px;">
+        <div class="card" style="padding: 2.5rem; width: 100%; max-width: 400px;">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 class="gradient-text" style="font-size: 2rem; margin-bottom: 0.5rem;">Verify Email</h1>
+                <p style="color: var(--text-secondary);">Enter the code sent to your email</p>
+            </div>
+
+            {% if debug_code %}
+            <div
+                style="background: rgba(255, 122, 0, 0.12); border: 1px solid var(--accent-primary); color: var(--text-primary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9em; text-align: center;">
+                <strong>Debug Mode:</strong> SMTP Failed.<br>Your code is: <strong>{{ debug_code }}</strong>
+            </div>
+            {% endif %}
+
+            {% if error %}
+            <div
+                style="background: rgba(255, 122, 0, 0.12); border: 1px solid rgba(255, 122, 0, 0.28); color: var(--accent-primary); padding: 0.75rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9em; text-align: center;">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <form action="/verify" method="POST">
+                <input type="hidden" name="next" value="{{ next or '/' }}">
+                <div style="margin-bottom: 1.25rem;">
+                    <label
+                        style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em; font-weight: 500;">Email</label>
+                    <input type="email" name="email" value="{{ email }}" required readonly
+                        style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1rem; cursor: not-allowed; opacity: 0.7;">
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label
+                        style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em; font-weight: 500;">Verification
+                        Code</label>
+                    <input type="text" name="code" required placeholder="123456" autofocus autocomplete="off"
+                        style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1.2rem; letter-spacing: 0.2rem; text-align: center;">
+                </div>
+
+                <button type="submit" class="btn-primary"
+                    style="width: 100%; justify-content: center; padding: 0.875rem;">
+                    Verify & Login
+                </button>
+            </form>
+
+            <div style="margin-top: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.9em;">
+                Didn't receive code? <a href="/signup?next={{ next_encoded or '%2F' }}" style="color: var(--primary); text-decoration: none;">Register
+                    again</a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

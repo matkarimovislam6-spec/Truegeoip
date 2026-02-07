@@ -1,0 +1,421 @@
+================================================================================
+                    IP GEOLOCATION SERVICE - TECHNICAL DOCUMENTATION
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+This is a FastAPI-based IP geolocation service that provides comprehensive 
+information about IP addresses including geographic location, network details,
+currency, and dial codes.
+
+ARCHITECTURE
+================================================================================
+
+┌─────────────┐
+│   Browser   │
+│  (Client)   │
+└──────┬──────┘
+       │ HTTP GET /api/check?ip=X.X.X.X
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        FastAPI Server                           │
+│                         (main.py)                               │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │  1. Convert IP to Hex String (32-char zero-padded)        │ │
+│  │  2. Query City_layer table (Primary - IPv4 & IPv6)        │ │
+│  │  3. Query ip_ranges table (Secondary - IPv4 metadata)     │ │
+│  │  4. Enrich with country_currency (Currency info)          │ │
+│  │  5. Enrich with country_dial (Dial codes)                 │ │
+│  │  6. Apply fallback_city if city is missing                │ │
+│  │  7. Return JSON response                                  │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │  ripe.sqlite    │
+                    │   (Database)    │
+                    └─────────────────┘
+
+DATABASE SCHEMA
+================================================================================
+
+Database File: ripe.sqlite
+Type: SQLite3
+
+TABLES:
+--------
+
+1. ip_ranges
+   Purpose: Stores IP address ranges with ASN and network information
+   Schema:
+   - start_ip (INTEGER): Start of IP range (as integer)
+   - end_ip (INTEGER): End of IP range (as integer)
+   - country (TEXT): 2-letter country code (e.g., "US", "GB")
+   - netname (TEXT): Network name
+   - org (TEXT): Organization name
+   - source (TEXT): Data source identifier
+   
+   Query Method: Range-based lookup
+   WHERE start_ip <= queried_ip AND end_ip >= queried_ip
+   
+   Example Record:
+   start_ip: 1442840576 (86.62.0.0)
+   end_ip: 1442906111 (86.62.255.255)
+   country: "TR"
+   netname: "TURKTELEKOM"
+   org: "Turk Telekom"
+
+2. City_layer
+   Purpose: Stores IP ranges with detailed geolocation data
+   Schema:
+   - start_ip (TEXT): Start of IP range (32-char zero-padded hex)
+   - end_ip (TEXT): End of IP range (32-char zero-padded hex)
+   - country_iso_code (TEXT): 2-letter country code
+   - city_name (TEXT): City name
+   - subdivision_1_name (TEXT): State/Province/Region
+   - postal_code (TEXT): Postal/ZIP code
+   - time_zone (TEXT): IANA timezone (e.g., "America/New_York")
+   - latitude (REAL): Latitude coordinate
+   - longitude (REAL): Longitude coordinate
+   
+   Query Method: Range-based lookup (same as ip_ranges)
+   
+   Example Record:
+   start_ip: 1442840576
+   end_ip: 1442906111
+   country_iso_code: "TR"
+   city_name: "Istanbul"
+   latitude: 41.0082
+   longitude: 28.9784
+
+3. country_currency
+   Purpose: Maps country codes to currency information
+   Schema:
+   - country_code (TEXT PRIMARY KEY): 2-letter ISO country code
+   - currency_name (TEXT): Full currency name (e.g., "US Dollar")
+   - currency_code (TEXT): 3-letter currency code (e.g., "USD")
+   
+   Data Source: pycountry library
+   
+   Query Method: Direct lookup by country code
+   
+   Example Record:
+   country_code: "US"
+   currency_name: "US Dollar"
+   currency_code: "USD"
+
+4. country_dial
+   Purpose: Maps country codes to international dial codes
+   Schema:
+   - country_code (TEXT PRIMARY KEY): 3-letter ISO-3 country code
+   - dial_code (TEXT): International dialing code (e.g., "1", "44")
+   
+   Data Source: country_dial.csv
+   
+   Query Method: Direct lookup by ISO-3 country code
+   
+   Example Record:
+   country_code: "USA"
+   dial_code: "1"
+
+5. fallback_city
+   Purpose: Provides capital city as fallback when city data is unavailable
+   Schema:
+   - country_code (TEXT PRIMARY KEY): 3-letter ISO-3 country code
+   - capital_city (TEXT): Capital city name
+   
+   Data Source: country_dial.csv (Capital column)
+   
+   Query Method: Direct lookup by ISO-3 country code
+   Used when: city is NULL or "N/A"
+   
+   Example Record:
+   country_code: "USA"
+   capital_city: "Washington"
+
+DATA FLOW
+================================================================================
+
+1. IP Query Received (IPv4 or IPv6)
+   ↓
+2. Convert IP String to 32-Character Hex
+   Example (IPv4): "8.8.8.8" → "00000000000000000000000008080808"
+   Example (IPv6): "2001:db8::" → "20010db8000000000000000000000000"
+   ↓
+3. Query City_layer Table (PRIMARY)
+   Find range where start_ip <= hex_ip <= end_ip (Hex comparison)
+   Returns: country, city, region, postal, timezone, lat, lon
+   ↓
+4. Query ip_ranges Table (SECONDARY - If IPv4)
+   Find range using integer comparison (Legacy / Network info)
+   Returns: netname, org, source (supplementary network info)
+   ↓
+5. Enrich with Country Data
+   a) Get country_alpha3 using pycountry
+   b) Query country_currency for currency info
+   c) Query country_dial for dial code
+   ↓
+6. Apply City Fallback (if needed)
+   If city is NULL or "N/A":
+      Query fallback_city for capital city
+   ↓
+7. Return Complete JSON Response
+
+API ENDPOINTS
+================================================================================
+
+1. GET /
+   Purpose: Serve the web interface
+   Returns: HTML page (index.html)
+
+2. GET /api/check?ip={ip_address}
+   Purpose: Get geolocation data for an IP address
+   
+   Parameters:
+   - ip (required): IPv4 or IPv6 address to lookup
+   
+   Response Format (JSON):
+   {
+     "ip": "86.62.2.251",
+     "found": true,
+     "range_start": "86.62.0.0",
+     "range_end": "86.62.255.255",
+     "country": "TR",
+     "country_full": "Turkey",
+     "country_alpha3": "TUR",
+     "country_numeric": "792",
+     "netname": "TURKTELEKOM",
+     "org": "Turk Telekom",
+     "source": "ripe",
+     "city": "Istanbul",
+     "region": "Istanbul",
+     "postal": "34000",
+     "timezone": "Europe/Istanbul",
+     "latitude": 41.0082,
+     "longitude": 28.9784,
+     "currency_name": "Turkish Lira",
+     "currency_code": "TRY",
+     "dial_code": "+90"
+   }
+   
+   Error Response (IP not found):
+   {
+     "ip": "1.2.3.4",
+     "found": false
+   }
+
+IMPORT SCRIPTS
+================================================================================
+
+1. import_currency.py
+   Purpose: Populate country_currency table
+   Data Source: pycountry library
+   Process:
+   - Iterate through all countries in pycountry
+   - Extract currency information
+   - Insert into country_currency table
+   
+2. import_dial.py
+   Purpose: Populate country_dial table
+   Data Source: country_dial.csv
+   Process:
+   - Read CSV file using DictReader
+   - Extract ISO3166-1-Alpha-3 and Dial columns
+   - Insert into country_dial table
+   
+3. import_capital.py
+   Purpose: Populate fallback_city table
+   Data Source: country_dial.csv
+   Process:
+   - Read CSV file using DictReader
+   - Extract ISO3166-1-Alpha-3 and Capital columns
+   - Insert into fallback_city table
+
+FRONTEND
+================================================================================
+
+Files:
+- templates/index.html: Main HTML structure
+- static/style.css: Styling
+- static/script.js: Client-side logic
+
+Workflow:
+1. User enters IP address
+2. JavaScript sends GET request to /api/check
+3. Response is parsed and displayed in UI
+4. Fields are populated with data or "N/A" if unavailable
+
+TECHNOLOGY STACK
+================================================================================
+
+Backend:
+- Python 3.9+
+- FastAPI: Web framework
+- Uvicorn: ASGI server
+- SQLite3: Database
+- pycountry: Country/currency data library
+
+Frontend:
+- HTML5
+- CSS3
+- Vanilla JavaScript (no frameworks)
+
+PERFORMANCE CHARACTERISTICS
+================================================================================
+
+Stress Test Results (1000 IPs):
+- Success Rate: 100%
+- Average Latency: ~10.3 seconds (dev environment with 5M+ hex records)
+- Data Coverage:
+  * Found in DB: 100%
+  * City: 100.0% (Perfect coverage with hex + fallback)
+  * Dial Code: 100.0%
+  * Currency: 99.3%
+
+Note: High latency is due to:
+- Development environment
+- SQLite concurrency limitations
+- No connection pooling
+- No caching layer
+
+Production Recommendations:
+- Use PostgreSQL or MySQL for better concurrency
+- Implement Redis caching for frequent IPs
+- Add connection pooling
+- Consider read replicas for scaling
+
+IP RANGE LOOKUP ALGORITHM
+================================================================================
+
+The system uses range-based lookups, not exact IP matching.
+
+Why Range-Based?
+- IP addresses are allocated in blocks (CIDR notation)
+- All IPs in a block share the same metadata
+- More efficient than storing individual IPs
+
+Query Logic:
+SELECT * FROM [City_layer] 
+WHERE start_ip <= ? AND end_ip >= ? 
+ORDER BY (end_ip - start_ip) ASC 
+LIMIT 1
+
+Mechanism:
+1. Every IP (v4 or v6) is normalized to a 32-character hex string.
+2. Standard SQLite string comparison handles the range lookup.
+3. This eliminates the 64-bit integer limitation for IPv6.
+
+Key Points:
+1. City_layer is queried first as it provides better coverage.
+2. finds all ranges containing the IP
+3. Orders by range size (smallest first)
+4. Returns most specific match
+5. ip_ranges is used to supplement network metadata (org/netname).
+
+Example:
+Query: 86.62.2.251
+Matches: 86.62.0.0/16 (large ISP block)
+Also Matches: 86.62.2.0/24 (specific subnet)
+Returns: 86.62.2.0/24 (more specific)
+
+DATA ENRICHMENT PIPELINE
+================================================================================
+
+Stage 1: Base IP Lookup
+- Query ip_ranges and City_layer tables
+- Get basic network and location data
+
+Stage 2: Country Code Normalization
+- Convert 2-letter code to ISO-3 using pycountry
+- Get full country name and numeric code
+
+Stage 3: Currency Enrichment
+- Lookup currency using 2-letter country code
+- Add currency_name and currency_code
+
+Stage 4: Dial Code Enrichment
+- Lookup dial code using ISO-3 country code
+- Add dial_code with "+" prefix
+
+Stage 5: City Fallback
+- Check if city is NULL or "N/A"
+- If yes, lookup capital city using ISO-3 code
+- Replace city with capital
+
+Stage 6: Response Assembly
+- Combine all data into single JSON object
+- Return to client
+
+FILE STRUCTURE
+================================================================================
+
+/Users/islommatkarimov/Downloads/go/
+├── main.py                    # FastAPI application
+├── ripe.sqlite                # Main database
+├── country_dial.csv           # Source data for dial codes & capitals
+├── countries.csv              # Country reference data
+├── import_currency.py         # Currency import script
+├── import_dial.py             # Dial code import script
+├── import_capital.py          # Capital city import script
+├── stress_test.py             # Performance testing script
+├── templates/
+│   └── index.html             # Web interface
+└── static/
+    ├── style.css              # Styling
+    └── script.js              # Client-side logic
+
+RUNNING THE APPLICATION
+================================================================================
+
+1. Start the server:
+   python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+2. Access the web interface:
+   http://localhost:8001
+
+3. API endpoint:
+   http://localhost:8001/api/check?ip=8.8.8.8
+
+MAINTENANCE & UPDATES
+================================================================================
+
+Updating IP Ranges:
+1. Obtain new RIPE data dumps
+2. Process and import into ip_ranges table
+3. Restart application
+
+Updating Currency Data:
+1. Run: python3 import_currency.py
+2. Restart application
+
+Updating Dial Codes:
+1. Update country_dial.csv
+2. Run: python3 import_dial.py
+3. Restart application
+
+Updating Capital Cities:
+1. Update country_dial.csv
+2. Run: python3 import_capital.py
+3. Restart application
+
+TROUBLESHOOTING
+================================================================================
+
+Issue: IP not found
+Solution: Check if IP range exists in database
+
+Issue: Missing city data
+Solution: Verify City_layer table has data for that range
+          Fallback should provide capital city
+
+Issue: Missing currency/dial code
+Solution: Run import scripts to populate lookup tables
+
+Issue: Slow performance
+Solution: Add indexes on start_ip and end_ip columns
+          Consider migrating to PostgreSQL
+
+================================================================================
+                              END OF DOCUMENTATION
+================================================================================

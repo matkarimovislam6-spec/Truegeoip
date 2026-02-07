@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard | TrueGeoIP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=20260206-legal2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-container {
+            padding: 120px 2rem 4rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .dashboard-header h1 {
+            font-size: 2rem;
+            margin: 0;
+        }
+
+        .dashboard-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .time-range-select {
+            padding: 0.5rem 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            /* Force 6 columns */
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            overflow-x: auto;
+            /* Safety scroll for very small screens */
+            padding-bottom: 5px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem;
+            /* Reduced padding */
+            transition: none;
+            min-width: 0;
+            /* Allow shrinking */
+        }
+
+        .stat-card:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            /* Smaller label */
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
+            /* Prevent wrap */
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            /* Smaller value */
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .stat-change.positive {
+            color: var(--success-fg);
+        }
+
+        .stat-change.negative {
+            color: var(--accent-primary);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .tables-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .table-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            overflow: hidden;
+        }
+
+        .table-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .data-table th {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .data-table td {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover {
+            background: rgba(255, 122, 0, 0.10);
+        }
+
+        .country-flag {
+            font-size: 1.2rem;
+            margin-right: 0.5rem;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--card-border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-primary);
+            border-radius: 3px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-vpn {
+            background: rgba(255, 122, 0, 0.15);
+            color: var(--accent-primary);
+        }
+
+        .badge-dc {
+            background: rgba(255, 122, 0, 0.18);
+            color: var(--accent-primary);
+        }
+
+        .badge-residential {
+            background: rgba(255, 122, 0, 0.12);
+            color: var(--accent-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .api-key-box {
+            background: rgba(255, 122, 0, 0.10);
+            border: 1px solid var(--accent-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .api-key-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .api-key-value {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        @media (max-width: 900px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tables-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="TrueGeoIP Logo" style="height: 32px; width: auto;">
+                    TrueGeoIP
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/">Lookup</a>
+                <a href="/dashboard" class="active">Analytics</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/contact">Contact</a>
+            </div>
+            {% if user %}
+            <div class="profile-menu">
+                <a href="#" class="profile-avatar-btn">{{ user.name[:1] }}</a>
+                <div class="profile-dropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-header-avatar">{{ user.name[:1] }}</div>
+                        <div class="dropdown-header-info">
+                            <div class="dropdown-header-name">{{ user.name }}</div>
+                            <div class="dropdown-header-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-section">
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-key"></i> API Keys
+                        </a>
+                        <a href="/pricing" class="dropdown-item">
+                            <i class="fas fa-credit-card"></i> Billing
+                        </a>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-section">
+                        <a href="/signout" class="dropdown-item danger">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="display: flex; gap: 0.75rem;">
+                <a href="/signin"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; display: flex; align-items: center;">Sign
+                    In</a>
+                <a href="/signup" class="btn-primary">Get Started</a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        {% if not user %}
+        <!-- Not logged in state -->
+        <div class="empty-state">
+            <i class="fas fa-chart-line"></i>
+            <h3>Analytics Dashboard</h3>
+            <p>Sign in to access your analytics dashboard and API keys.</p>
+            <a href="/signin" class="btn-primary" style="margin-top: 1rem;">Sign In</a>
+        </div>
+        {% elif not project %}
+        <!-- No project yet -->
+        <div class="dashboard-header">
+            <h1>Analytics <span class="gradient-text">Dashboard</span></h1>
+        </div>
+
+        <div class="empty-state">
+            <i class="fas fa-rocket"></i>
+            <h3>Get Started with Analytics</h3>
+            <p>Create your first project to start tracking API requests.</p>
+            <form action="/dashboard/create-project" method="POST" style="margin-top: 1.5rem;">
+                <input type="text" name="project_name" placeholder="Project Name" required
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); color: var(--text-primary); margin-right: 0.5rem; width: 250px;">
+                <button type="submit" class="btn-primary">Create Project</button>
+            </form>
+        </div>
+        {% else %}
+        <!-- Dashboard with data -->
+        <div class="dashboard-header">
+            <h1>Analytics <span class="gradient-text">Dashboard</span></h1>
+            <div class="dashboard-controls">
+                <select class="time-range-select" id="timeRange" onchange="loadDashboard()">
+                    <option value="1">Last 24 hours</option>
+                    <option value="7" selected>Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                </select>
+                <button class="btn-secondary" onclick="refreshData()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+
+        <!-- API Usage & Key Box -->
+        <div class="api-key-box" style="margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                <div>
+                    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.25rem;">API Usage</h3>
+                    <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                        Plan: <span
+                            style="color: var(--accent-primary); font-weight: bold; text-transform: capitalize;">{{ plan
+                            }}</span>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--text-primary);">
+                        {{ today_usage }} <span
+                            style="font-size: 1rem; color: var(--text-tertiary); font-weight: normal;">/ {{ limit
+                            }}</span>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-tertiary);">Requests Today</div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div
+                style="width: 100%; height: 8px; background: rgba(255, 122, 0, 0.18); border-radius: 4px; overflow: hidden; margin-bottom: 2rem;">
+                <div
+                    style="height: 100%; width: {{ (today_usage / limit * 100) if limit > 0 else 0 }}%; background: var(--accent-primary); border-radius: 4px;">
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid var(--card-border); padding-top: 1.5rem;">
+                <div class="api-key-label" style="margin-bottom: 0.5rem;">Your API Key</div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" value="{{ api_key if api_key else 'Sign in to generate key' }}" readonly
+                        style="flex: 1; background: var(--input-bg); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 6px; color: var(--text-primary); font-family: monospace;">
+                    <button class="btn-secondary" onclick="navigator.clipboard.writeText('{{ api_key }}')" title="Copy">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label"><i class="fas fa-chart-bar"></i> Total Requests</div>
+                <div class="stat-value" id="totalRequests">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label"><i class="fas fa-users"></i> Unique IPs</div>
+                <div class="stat-value" id="uniqueIps">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label"><i class="fas fa-globe"></i> Countries</div>
+                <div class="stat-value" id="countryCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label"><i class="fas fa-network-wired"></i> ASNs</div>
+                <div class="stat-value" id="asnCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label"><i class="fas fa-server"></i> Datacenter %</div>
+                <div class="stat-value" id="datacenterPercent">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label"><i class="fas fa-mask"></i> VPN %</div>
+                <div class="stat-value" id="vpnPercent">-</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title" id="requestsTitle">Requests Over Time</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="timeseriesChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title">Traffic Breakdown</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="breakdownChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tables -->
+        <div class="tables-grid">
+            <div class="table-card">
+                <div class="table-header">Top Countries</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Country</th>
+                            <th>Requests</th>
+                            <th>Share</th>
+                        </tr>
+                    </thead>
+                    <tbody id="countriesTable">
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-secondary);">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-card">
+                <div class="table-header">Top Networks (ASN)</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Network</th>
+                            <th>Requests</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody id="asnsTable">
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-secondary);">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <footer>
+        <div class="container footer-content">
+            <p>&copy; 2026 TrueGeoIP</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    {% if project %}
+    <script>
+        const projectId = "{{ project.id }}";
+        let timeseriesChart = null;
+        let breakdownChart = null;
+
+        function normalizeCountryCode(code) {
+            if (!code) return null;
+            const cleaned = String(code).trim().split('#')[0].trim().toUpperCase();
+            if (!cleaned || cleaned === 'N/A') return null;
+            if (!/^[A-Z]{2}$/.test(cleaned)) return null;
+            return cleaned;
+        }
+
+        // Country code to flag emoji (safe for malformed values)
+        function countryFlag(code) {
+            const normalized = normalizeCountryCode(code);
+            if (!normalized) return '🌍';
+            const codePoints = normalized.split('').map(char => 127397 + char.charCodeAt(0));
+            return String.fromCodePoint(...codePoints);
+        }
+
+        // Format large numbers
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        async function loadDashboard() {
+            const days = document.getElementById('timeRange').value;
+
+            // Load overview
+            try {
+                const overview = await fetch(`/v1/analytics/overview?days=${days}`).then(r => r.json());
+                document.getElementById('totalRequests').textContent = formatNumber(overview.total_requests || 0);
+                document.getElementById('uniqueIps').textContent = formatNumber(overview.unique_ips || 0);
+                document.getElementById('countryCount').textContent = overview.country_count || 0;
+                document.getElementById('asnCount').textContent = overview.asn_count || 0;
+                document.getElementById('datacenterPercent').textContent = (overview.datacenter_percent || 0) + '%';
+                document.getElementById('vpnPercent').textContent = (overview.vpn_percent || 0) + '%';
+            } catch (e) {
+                console.error('Failed to load overview:', e);
+            }
+
+            // Load timeseries
+            try {
+                const interval = days <= 1 ? 'hour' : 'day';
+                const timeseries = await fetch(`/v1/analytics/timeseries?days=${days}&interval=${interval}`).then(r => r.json());
+
+                const labels = timeseries.map(d => {
+                    const date = new Date(d.bucket);
+                    return interval === 'hour' ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                });
+                const data = timeseries.map(d => d.requests);
+
+                if (timeseriesChart) timeseriesChart.destroy();
+                timeseriesChart = new Chart(document.getElementById('timeseriesChart'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Requests',
+                            data: data,
+                            borderColor: "#ff7a00",
+                            backgroundColor: "rgba(255, 122, 0, 0.18)",
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(232, 234, 237, 0.8)' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('Failed to load timeseries:', e);
+            }
+
+            // Load risk breakdown
+            try {
+                const risk = await fetch(`/v1/analytics/risk?days=${days}`).then(r => r.json());
+
+                if (breakdownChart) breakdownChart.destroy();
+                breakdownChart = new Chart(document.getElementById('breakdownChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Residential', 'Datacenter', 'VPN', 'Mobile', 'Other'],
+                        datasets: [{
+                            data: [risk.residential || 0, risk.datacenter || 0, risk.vpn || 0, risk.mobile || 0, risk.other || 0],
+                            backgroundColor: ["#10b981", "#6366f1", "#f43f5e", "#f59e0b", "#64748b"],
+                            borderWidth: 0,
+                            hoverOffset: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('Failed to load risk:', e);
+            }
+
+            // Update title
+            const rangeSelect = document.getElementById('timeRange');
+            const rangeText = rangeSelect.options[rangeSelect.selectedIndex].text;
+            document.getElementById('requestsTitle').textContent = `Requests Over Time (${rangeText})`;
+
+            // Load countries
+            try {
+                const countries = await fetch(`/v1/analytics/countries?days=${days}`).then(r => r.json());
+                const total = countries.reduce((sum, c) => sum + c.requests, 0) || 1;
+                const tbody = document.getElementById('countriesTable');
+
+                if (countries.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No data yet</td></tr>';
+                } else {
+                    tbody.innerHTML = countries.map(c => {
+                        const normalizedCode = normalizeCountryCode(c.country_code);
+                        const displayName = (c.country_name && c.country_name !== 'N/A')
+                            ? c.country_name
+                            : (normalizedCode || 'Unknown');
+                        return `
+                        <tr>
+                            <td>${countryFlag(c.country_code)} ${displayName}</td>
+                            <td>${formatNumber(c.requests)}</td>
+                            <td>
+                                <div>${Math.round(c.requests / total * 100)}%</div>
+                                <div class="progress-bar"><div class="progress-fill" style="width: ${c.requests / total * 100}%"></div></div>
+                            </td>
+                        </tr>
+                    `}).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load countries:', e);
+            }
+
+            // Load ASNs
+            try {
+                const asns = await fetch(`/v1/analytics/asns?days=${days}`).then(r => r.json());
+                const tbody = document.getElementById('asnsTable');
+
+                if (asns.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No data yet</td></tr>';
+                } else {
+                    tbody.innerHTML = asns.map(a => {
+                        const isDatacenter = a.datacenter_count > 0;
+                        const badge = isDatacenter ? '<span class="badge badge-dc">DC</span>' : '<span class="badge badge-residential">Residential</span>';
+                        return `
+                            <tr>
+                                <td title="AS${a.asn}">${a.asn_name || a.netname || 'AS' + a.asn}</td>
+                                <td>${formatNumber(a.requests)}</td>
+                                <td>${badge}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load ASNs:', e);
+            }
+        }
+
+        function refreshData() {
+            loadDashboard();
+        }
+
+        // Initial load
+        loadDashboard();
+    </script>
+    {% endif %}
+</body>
+
+</html>

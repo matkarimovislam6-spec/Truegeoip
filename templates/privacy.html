@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy | TrueGeoIP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=20260206-legal2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .legal-shell {
+            max-width: 960px;
+            margin: 110px auto 60px;
+            padding: 0 1.5rem;
+        }
+
+        .legal-switch {
+            display: inline-flex;
+            background: #1f1532;
+            border: 1px solid #2a1f43;
+            border-radius: 6px;
+            padding: 0.35rem;
+            margin-bottom: 1.5rem;
+            gap: 0.35rem;
+        }
+
+        .legal-switch a {
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.6rem 1rem;
+            border-radius: 4px;
+        }
+
+        .legal-switch a.active {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .legal-meta {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .legal-section {
+            margin-bottom: 2rem;
+        }
+
+        .legal-section h2 {
+            font-size: 1.35rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .legal-section p {
+            color: var(--text-secondary);
+            line-height: 1.75;
+        }
+
+        .legal-section ul {
+            margin-top: 0.8rem;
+            margin-left: 1.5rem;
+            color: var(--text-secondary);
+            line-height: 1.75;
+        }
+
+        .legal-section li {
+            margin-bottom: 0.45rem;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="TrueGeoIP Logo" style="height: 32px; width: auto;">
+                    TrueGeoIP
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/#features">Features</a>
+                <a href="/dashboard">Analytics</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/contact">Contact</a>
+            </div>
+            {% if user %}
+            <div class="profile-menu">
+                <a href="#" class="profile-avatar-btn">{{ user.name[:1] }}</a>
+                <div class="profile-dropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-header-avatar">{{ user.name[:1] }}</div>
+                        <div class="dropdown-header-info">
+                            <div class="dropdown-header-name">{{ user.name }}</div>
+                            <div class="dropdown-header-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-section">
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-user"></i> Profile
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-key"></i> API Keys
+                        </a>
+                        <a href="/pricing" class="dropdown-item">
+                            <i class="fas fa-credit-card"></i> Billing
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-section">
+                        <a href="/signout" class="dropdown-item danger">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="display: flex; gap: 0.75rem;">
+                <a href="/signin"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; display: flex; align-items: center;">Sign
+                    In</a>
+                <a href="/signup" class="btn-primary">Get Started</a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="legal-shell">
+        <div class="legal-switch">
+            <a href="/privacy" class="active">Privacy</a>
+            <a href="/terms">Terms</a>
+        </div>
+
+        <h1>Privacy Policy</h1>
+        <p class="legal-meta">Last updated: February 6, 2026</p>
+
+        <section class="legal-section">
+            <h2>1. Scope and Principles</h2>
+            <p>
+                This policy explains how TrueGeoIP collects, uses, stores, and protects personal data across our website,
+                API, analytics, and support channels. Our program is guided by data minimization, purpose limitation,
+                transparency, and accountability.
+            </p>
+        </section>
+
+        <section class="legal-section">
+            <h2>2. Data We Collect</h2>
+            <ul>
+                <li><strong>Account data:</strong> name, email, authentication data, and profile settings.</li>
+                <li><strong>Billing data:</strong> subscription and invoice metadata from payment providers.</li>
+                <li><strong>Service telemetry:</strong> API request metadata, timing, and error logs for reliability and abuse prevention.</li>
+                <li><strong>Security logs:</strong> events needed for monitoring, investigations, and incident response.</li>
+            </ul>
+        </section>
+
+        <section class="legal-section">
+            <h2>3. Global Privacy Standards</h2>
+            <p>
+                We structure our controls to support globally recognized requirements and customer expectations, including
+                GDPR/UK GDPR, CCPA/CPRA, LGPD, PIPEDA, APPI, and Singapore PDPA where applicable.
+            </p>
+        </section>
+
+        <section class="legal-section">
+            <h2>4. Lawful Basis and Data Use</h2>
+            <p>
+                We process data under lawful bases such as contract performance, legitimate interests, legal obligations,
+                and consent (where required). Data is used to deliver services, secure infrastructure, prevent fraud, and
+                comply with law.
+            </p>
+        </section>
+
+        <section class="legal-section">
+            <h2>5. Security and Control Frameworks</h2>
+            <p>
+                Our safeguards align with enterprise security practices informed by ISO/IEC 27001 control domains, SOC 2 trust
+                principles, and NIST-style risk management. Controls include least privilege access, encrypted transport,
+                monitoring, vulnerability management, and incident response procedures.
+            </p>
+        </section>
+
+        <section class="legal-section">
+            <h2>6. Data Retention and Deletion</h2>
+            <p>
+                Data is retained only for the minimum period necessary for service delivery, legal compliance, and security operations.
+                When no longer required, data is deleted or de-identified according to our retention schedule.
+            </p>
+        </section>
+
+        <section class="legal-section">
+            <h2>7. International Data Transfers</h2>
+            <p>
+                For cross-border processing, we apply safeguards such as contractual protections and transfer risk assessments
+                to meet applicable regional transfer obligations.
+            </p>
+        </section>
+
+        <section class="legal-section">
+            <h2>8. Your Privacy Rights</h2>
+            <p>Depending on your location, you may have rights to access, correct, delete, port, or restrict processing of your data.</p>
+            <p>To submit a request, contact <strong>support@truegeoip.com</strong>.</p>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container footer-content">
+            <p>&copy; 2026 TrueGeoIP</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
