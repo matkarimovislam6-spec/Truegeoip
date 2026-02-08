@@ -203,7 +203,10 @@ def get_project_api_keys(project_id: str) -> List[Dict[str, Any]]:
     conn = get_db_connection()
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT id, key, name, created_at, last_used FROM api_keys WHERE project_id = %s", (project_id,))
+        cursor.execute(
+            "SELECT id, key, name, created_at, last_used FROM api_keys WHERE project_id = %s ORDER BY id ASC",
+            (project_id,),
+        )
         rows = cursor.fetchall()
         cursor.close()
         return [dict(row) for row in rows]

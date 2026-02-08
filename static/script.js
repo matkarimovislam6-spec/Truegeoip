@@ -313,12 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!response.ok) {
                 const errorMsg = data.error || data.detail || "An error occurred";
-                if (response.status === 403) {
-                    showMessage(`Sign in required. <a href="/signin" style="color: var(--accent-primary); text-decoration: underline;">Sign In</a>`, "error");
-                    messageDiv.innerHTML = `Sign in required. <a href="/signin" style="color: var(--accent-primary); text-decoration: underline;">Sign In</a>`; // Explicitly set innerHTML for link
-                } else {
-                    showMessage(errorMsg, "error");
-                }
+                showMessage(errorMsg, "error");
                 return;
             }
 

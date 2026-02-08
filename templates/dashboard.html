@@ -421,11 +421,15 @@
             </div>
 
             <div style="border-top: 1px solid var(--card-border); padding-top: 1.5rem;">
-                <div class="api-key-label" style="margin-bottom: 0.5rem;">Your API Key</div>
+                <div style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    Live lookup is public and protected by anti-abuse speed limits.
+                </div>
+
+                <div class="api-key-label" style="margin-bottom: 0.5rem;">Analytics Ingest Key</div>
                 <div style="display: flex; gap: 0.5rem;">
-                    <input type="text" value="{{ api_key if api_key else 'Sign in to generate key' }}" readonly
+                    <input type="text" value="{{ analytics_api_key if analytics_api_key else 'Create a project to generate analytics key' }}" readonly
                         style="flex: 1; background: var(--input-bg); border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 6px; color: var(--text-primary); font-family: monospace;">
-                    <button class="btn-secondary" onclick="navigator.clipboard.writeText('{{ api_key }}')" title="Copy">
+                    <button class="btn-secondary" onclick="navigator.clipboard.writeText('{{ analytics_api_key if analytics_api_key else '' }}')" title="Copy">
                         <i class="fas fa-copy"></i>
                     </button>
                 </div>

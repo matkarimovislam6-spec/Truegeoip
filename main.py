@@ -80,6 +80,9 @@ if LOOKUP_MODE not in {"db", "memory"}:
 CACHE_SIZE = env_int("IP_CACHE_SIZE", 100000)
 CACHE_TTL = env_int("IP_CACHE_TTL", 3600)
 NUM_WORKERS = env_int("LOOKUP_WORKERS", 4)
+LOOKUP_RATE_WINDOW_SECONDS = env_int("LOOKUP_RATE_WINDOW_SECONDS", 10)
+LOOKUP_RATE_MAX_REQUESTS = env_int("LOOKUP_RATE_MAX_REQUESTS", 80)
+LOOKUP_RATE_BLOCK_SECONDS = env_int("LOOKUP_RATE_BLOCK_SECONDS", 30)
 AUTO_CREATE_DB_INDEXES = (os.getenv("AUTO_CREATE_DB_INDEXES", "0") or "").strip().lower() in {
     "1", "true", "yes", "on"
 }
@@ -90,6 +93,8 @@ ip_cache = TTLCache(maxsize=CACHE_SIZE, ttl=CACHE_TTL)
 # Elevation cache (fully preloaded only in memory mode).
 elevation_data = {}
 cache_lock = threading.Lock()
+lookup_rate_state = {}
+lookup_rate_lock = threading.Lock()
 
 # In-memory sorted data for fast binary search
 city_data = []  # [(start_hex, end_hex, row_dict), ...]
@@ -1881,23 +1886,88 @@ async def lazy_fetch_elevation(lat: float, lon: float) -> Optional[float]:
         
     return None
 
+def get_request_client_id(request: Request) -> str:
+    """Resolve client identifier for lookup abuse protection."""
+    x_forwarded_for = (request.headers.get("x-forwarded-for") or "").strip()
+    if x_forwarded_for:
+        first_ip = x_forwarded_for.split(",")[0].strip()
+        if first_ip:
+            return first_ip
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown-client"
+
+
+def check_lookup_speed_limit(request: Request) -> Dict[str, Any]:
+    """In-memory per-client speed limiter to reduce abusive traffic bursts."""
+    if LOOKUP_RATE_MAX_REQUESTS <= 0 or LOOKUP_RATE_WINDOW_SECONDS <= 0:
+        return {"allowed": True, "retry_after": 0}
+
+    client_id = get_request_client_id(request)
+    now = time.monotonic()
+
+    with lookup_rate_lock:
+        state = lookup_rate_state.get(client_id)
+        if not state:
+            state = {"window_start": now, "count": 0, "blocked_until": 0.0}
+
+        blocked_until = float(state.get("blocked_until", 0.0))
+        if blocked_until > now:
+            retry_after = int(blocked_until - now) + 1
+            return {"allowed": False, "retry_after": retry_after}
+
+        window_start = float(state.get("window_start", now))
+        count = int(state.get("count", 0))
+
+        if now - window_start >= LOOKUP_RATE_WINDOW_SECONDS:
+            window_start = now
+            count = 0
+
+        count += 1
+        if count > LOOKUP_RATE_MAX_REQUESTS:
+            blocked_until = now + max(1, LOOKUP_RATE_BLOCK_SECONDS)
+            lookup_rate_state[client_id] = {
+                "window_start": window_start,
+                "count": count,
+                "blocked_until": blocked_until,
+            }
+            return {
+                "allowed": False,
+                "retry_after": int(max(1, LOOKUP_RATE_BLOCK_SECONDS)),
+            }
+
+        lookup_rate_state[client_id] = {
+            "window_start": window_start,
+            "count": count,
+            "blocked_until": 0.0,
+        }
+
+        # Best-effort cleanup to keep memory bounded.
+        if len(lookup_rate_state) > 100000:
+            stale = [
+                key for key, value in lookup_rate_state.items()
+                if now - float(value.get("window_start", now)) > (LOOKUP_RATE_WINDOW_SECONDS * 3)
+                and float(value.get("blocked_until", 0.0)) <= now
+            ]
+            for key in stale[:50000]:
+                lookup_rate_state.pop(key, None)
+
+    return {"allowed": True, "retry_after": 0}
+
+
 @app.get("/api/check")
-@limiter.limit("100/minute")
-async def check_ip(request: Request, ip: str, response: Response, api_key: str = None):
-    # Check API Key or Session (Web Auth)
-    # ---------------------------------------------------------
-    user_session = request.session.get("user")
-    
-    if api_key:
-        api_key_status = check_api_key_limit(api_key)
-        if not api_key_status["allowed"]:
-            return Response(content=f'{{"error": "{api_key_status["error"]}"}}', media_type="application/json", status_code=403)
-    elif user_session:
-        # Logged in via Web, allow request (maybe limit if needed, but for now allow)
-        pass 
-    else:
-        # Not logged in, no API key -> ALLOW access for Live Lookup (Public Feature)
-        pass 
+async def check_ip(request: Request, ip: str, response: Response):
+    # Anti-abuse guard: keep lookup public but reject very fast bursts per client.
+    speed_status = check_lookup_speed_limit(request)
+    if not speed_status["allowed"]:
+        retry_after = max(1, int(speed_status.get("retry_after", 1)))
+        error_response = Response(
+            content=f'{{"error": "Too many lookup requests from this IP. Slow down and retry in {retry_after}s."}}',
+            media_type="application/json",
+            status_code=429,
+        )
+        error_response.headers["Retry-After"] = str(retry_after)
+        return error_response
 
     # 1. Check Cache
     if ip in ip_cache:
@@ -2078,7 +2148,7 @@ async def dashboard_page(request: Request):
     try:
         user = request.session.get("user")
         project = None
-        api_key = None
+        analytics_api_key = None
         
         today_usage = 0
         limit = 100
@@ -2091,7 +2161,6 @@ async def dashboard_page(request: Request):
             if user_row:
                 # Update session user with fresh data
                 user = dict(user_row)
-                api_key = user.get("api_key")
                 today_usage = user.get("api_requests_count", 0)
                 plan = user.get("plan", "free")
                 
@@ -2112,6 +2181,9 @@ async def dashboard_page(request: Request):
             projects = analytics.get_user_projects(user["id"])
             if projects:
                 project = projects[0]
+                project_keys = analytics.get_project_api_keys(project["id"])
+                if project_keys:
+                    analytics_api_key = project_keys[0].get("key")
 
         # Fetch user licenses
         user_licenses = []
@@ -2122,7 +2194,7 @@ async def dashboard_page(request: Request):
             "request": request,
             "user": user,
             "project": project,
-            "api_key": api_key,
+            "analytics_api_key": analytics_api_key,
             "licenses": user_licenses,
             "today_usage": today_usage,
             "limit": limit,
@@ -2172,57 +2244,6 @@ async def create_demo_license(request: Request):
         
     key = licenses.create_license(user['id'], plan_type='demo', duration_days=30)
     return {"key": key, "status": "created"}
-
-
-
-def check_api_key_limit(api_key: str) -> dict:
-    """
-    Validates API key and enforces 100 req/day limit.
-    Returns: {"allowed": bool, "error": str}
-    """
-    if not api_key:
-        return {"allowed": False, "error": "Sign in required to use API."}
-    
-    conn = auth.get_db_connection()
-    try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute(
-            "SELECT id, api_requests_count, last_api_usage_date FROM users WHERE api_key = %s",
-            (api_key,),
-        )
-        user = cursor.fetchone()
-        if not user:
-            cursor.close()
-            return {"allowed": False, "error": "Invalid API Key."}
-
-        user_id = user["id"]
-        count = user.get("api_requests_count") or 0
-        last_date_raw = user.get("last_api_usage_date")
-        if isinstance(last_date_raw, datetime):
-            last_date = last_date_raw.date().isoformat()
-        else:
-            last_date = str(last_date_raw or "")
-        today = datetime.utcnow().strftime("%Y-%m-%d")
-
-        # Reset counter if new day
-        if last_date != today:
-            count = 0
-
-        if count >= 100:
-            cursor.close()
-            return {"allowed": False, "error": "Daily limit of 100 requests exceeded."}
-
-        # Increment and update
-        cursor.execute(
-            "UPDATE users SET api_requests_count = %s, last_api_usage_date = %s WHERE id = %s",
-            (count + 1, today, user_id),
-        )
-        conn.commit()
-        cursor.close()
-        return {"allowed": True, "error": None}
-    finally:
-        auth.release_db_connection(conn)
-
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
