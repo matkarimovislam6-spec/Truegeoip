@@ -15,10 +15,11 @@
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css?v=20260208-mobilefix1">
+    <link rel="stylesheet" href="/static/auth.css?v=20260208-auth1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
-<body>
+<body class="auth-page">
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">
@@ -34,70 +35,43 @@
         </div>
     </nav>
 
-    <div class="container"
-        style="display: flex; justify-content: center; align-items: center; min-height: 80vh; padding-top: 80px;">
-        <div class="glass-card"
-            style="padding: 2.5rem; width: 100%; max-width: 400px; background: var(--palette-3); border: 1px solid var(--card-border); box-shadow: none; border-radius: 16px;">
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <img src="/static/img/logo_mark.png" alt="Logo" style="width: 48px; margin-bottom: 1rem;">
-                <h1>Welcome Back</h1>
-                <p style="color: var(--text-secondary);">Sign in to your account</p>
-            </div>
+    <main class="auth-shell">
+        <section class="auth-card" aria-label="Sign in">
+            <div class="auth-card__inner">
+                <img src="/static/img/logo_mark.png" alt="TrueGeoIP" class="auth-logo">
+                <h1 class="auth-title">Continue with Google</h1>
+                <p class="auth-subtitle">Sign in or create your account in one click. No passwords.</p>
 
-            {% if error %}
-            <div
-                style="background: rgba(255, 122, 0, 0.12); border: 1px solid rgba(255, 122, 0, 0.28); color: var(--accent-primary); padding: 0.75rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9em; text-align: center;">
-                {{ error }}
-            </div>
-            {% endif %}
+                {% if error %}
+                <div class="auth-error">{{ error }}</div>
+                {% endif %}
 
-            <form action="/signin" method="POST">
-                <input type="hidden" name="next" value="{{ next or '/' }}">
-                <div style="margin-bottom: 1.25rem;">
-                    <label
-                        style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em;">Email
-                        Address</label>
-                    <input type="email" name="email" required placeholder="name@company.com"
-                        style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1rem;">
+                {% if google_oauth_configured %}
+                <div class="auth-actions">
+                    <a class="google-btn" href="/auth/google?next={{ next_encoded or '%2F' }}">
+                        <img class="google-btn__icon" src="https://www.svgrepo.com/show/475656/google-color.svg"
+                            alt="Google">
+                        Continue with Google
+                    </a>
                 </div>
+                {% else %}
+                <div class="auth-error">Google Sign-In is not configured on this server.</div>
+                {% endif %}
 
-                <div style="margin-bottom: 1.5rem;">
-                    <label
-                        style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em;">Password</label>
-                    <input type="password" name="password" required placeholder="••••••••"
-                        style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1rem;">
+                <div class="auth-meta">
+                    New here? <a href="/signup?next={{ next_encoded or '%2F' }}">Get started</a>
                 </div>
-
-                <button type="submit" class="btn-primary"
-                    style="width: 100%; justify-content: center; padding: 0.875rem;">
-                    Sign In
-                </button>
-            </form>
-
-            <div style="margin-top: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.9em;">
-                Don't have an account? <a href="/signup?next={{ next_encoded or '%2F' }}"
-                    style="color: var(--accent-primary); text-decoration: none; font-weight: 500;">Sign Up</a>
+                <div class="auth-meta">
+                    By continuing you agree to the <a href="/terms">Terms</a> and <a href="/privacy">Privacy</a>.
+                </div>
             </div>
+        </section>
+    </main>
 
-            {% if google_oauth_configured %}
-            <div style="position: relative; margin: 2rem 0; text-align: center;">
-                <hr style="border: 0; border-top: 1px solid var(--card-border);">
-                <span
-                    style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--palette-3); padding: 0 0.75rem; color: var(--text-secondary); font-size: 0.85em;">OR</span>
-            </div>
-
-            <a href="/auth/google?next={{ next_encoded or '%2F' }}"
-                style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; width: 100%; padding: 0.875rem; background: var(--palette-3); color: var(--text-primary); border: 1px solid var(--card-border); border-radius: 8px; text-decoration: none; font-weight: 500; transition: none;">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google"
-                    style="width: 20px; height: 20px;">
-                Sign in with Google
-            </a>
-            {% endif %}
-        </div>
-    </div>
-    <div style="text-align: center; margin-top: 2rem; color: var(--text-tertiary); font-size: 0.8rem; opacity: 0.7;">
+    <div style="text-align: center; margin: 0 0 2rem; color: var(--text-tertiary); font-size: 0.85rem;">
         &copy; 2026 TrueGeoIP.
     </div>
 </body>
 
 </html>
+
