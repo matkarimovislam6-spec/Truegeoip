@@ -17,6 +17,8 @@ sudo apt update
 sudo apt install python3-pip python3-venv nginx -y
 ```
 
+For a budget deployment, a VM with **6 GB RAM** can work if you use DB lookup mode (no full in-memory preload).
+
 ## 2. Transfer Files
 
 You can use `git` (recommended) or `scp` to copy your files.
@@ -41,6 +43,9 @@ cd /var/www/truegeoip
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# One-time: build lookup indexes (important for low-RAM DB mode)
+python3 scripts/build_lookup_indexes.py --db databasefull.sqlite
 ```
 
 **Update `.env`**:
@@ -70,7 +75,11 @@ User=root
 Group=www-data
 WorkingDirectory=/var/www/truegeoip
 Environment="PATH=/var/www/truegeoip/venv/bin"
-ExecStart=/var/www/truegeoip/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 127.0.0.1:8000
+Environment="IP_DB_FILE=/var/www/truegeoip/databasefull.sqlite"
+Environment="LOOKUP_MODE=db"
+Environment="LOOKUP_WORKERS=4"
+Environment="AUTO_CREATE_DB_INDEXES=0"
+ExecStart=/var/www/truegeoip/venv/bin/gunicorn -w 1 -k uvicorn.workers.UvicornWorker main:app --bind 127.0.0.1:8000 --timeout 120
 
 [Install]
 WantedBy=multi-user.target

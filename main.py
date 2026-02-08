@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Form, status, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -29,16 +29,65 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# PostgreSQL support
+import psycopg2
+import psycopg2.pool
+from psycopg2.extras import RealDictCursor
+
 # Configuration
-DB_FILE = "ripe.sqlite"
-CACHE_SIZE = 100000
-CACHE_TTL = 3600
-NUM_WORKERS = 16
+# Database backend: "postgresql" or "sqlite"
+DB_BACKEND = os.getenv("DB_BACKEND", "postgresql").strip().lower()
+
+# PostgreSQL connection settings
+PG_HOST = os.getenv("PG_HOST", "/tmp")
+PG_PORT = os.getenv("PG_PORT", "5432")
+PG_DATABASE = os.getenv("PG_DATABASE", "truegeoip")
+PG_USER = os.getenv("PG_USER", "postgres")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "Islam1717@")
+PG_MIN_CONN = int(os.getenv("PG_MIN_CONN", "2"))
+PG_MAX_CONN = int(os.getenv("PG_MAX_CONN", "10"))
+
+# PostgreSQL connection pool (initialized at startup)
+pg_pool = None
+
+def resolve_ip_db_file() -> str:
+    """Resolve primary IP data DB path from env or common filenames."""
+    env_value = (os.getenv("IP_DB_FILE", "") or "").strip()
+    if env_value:
+        return env_value
+
+    for candidate in ("databasefull.sqlite", "ripe.sqlite"):
+        if os.path.exists(candidate):
+            return candidate
+    return "ripe.sqlite"
+
+
+DB_FILE = resolve_ip_db_file()
+
+
+def env_int(name: str, default: int) -> int:
+    """Safely parse integer env config with fallback."""
+    try:
+        return int(os.getenv(name, str(default)))
+    except Exception:
+        return default
+
+
+LOOKUP_MODE = (os.getenv("LOOKUP_MODE", "db") or "db").strip().lower()
+if LOOKUP_MODE not in {"db", "memory"}:
+    LOOKUP_MODE = "db"
+
+CACHE_SIZE = env_int("IP_CACHE_SIZE", 100000)
+CACHE_TTL = env_int("IP_CACHE_TTL", 3600)
+NUM_WORKERS = env_int("LOOKUP_WORKERS", 4)
+AUTO_CREATE_DB_INDEXES = (os.getenv("AUTO_CREATE_DB_INDEXES", "0") or "").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 # Global resources
 executor: ThreadPoolExecutor = None
 ip_cache = TTLCache(maxsize=CACHE_SIZE, ttl=CACHE_TTL)
-# Elevation data will be loaded into memory
+# Elevation cache (fully preloaded only in memory mode).
 elevation_data = {}
 cache_lock = threading.Lock()
 
@@ -53,6 +102,19 @@ countries = {}  # alpha2 -> row_dict
 currencies = {}  # country_code -> row_dict
 dial_codes = {}  # alpha3 -> dial_code
 fallback_cities = {}  # alpha3 -> capital_city
+
+LOOKUP_INDEX_SQL = {
+    "idx_city_layer_start_ip": "CREATE INDEX IF NOT EXISTS idx_city_layer_start_ip ON City_layer(start_ip)",
+    "idx_ip_ranges_start_ip": "CREATE INDEX IF NOT EXISTS idx_ip_ranges_start_ip ON ip_ranges(start_ip)",
+    "idx_asn_lookup_start_ip": "CREATE INDEX IF NOT EXISTS idx_asn_lookup_start_ip ON asn_lookup(start_ip)",
+    "idx_vpn_ranges_start_ip": "CREATE INDEX IF NOT EXISTS idx_vpn_ranges_start_ip ON vpn_ranges(start_ip)",
+    "idx_user_type_start_ip": "CREATE INDEX IF NOT EXISTS idx_user_type_start_ip ON user_type(start_ip)",
+    "idx_threat_level_start_ip": "CREATE INDEX IF NOT EXISTS idx_threat_level_start_ip ON Threat_level(start_ip)",
+    "idx_elevation_lookup_lat_lon": (
+        "CREATE INDEX IF NOT EXISTS idx_elevation_lookup_lat_lon "
+        "ON elevation_lookup(latitude, longitude)"
+    ),
+}
 
 # Pre-compiled IP network objects
 PRIVATE_NETWORKS = [
@@ -321,25 +383,266 @@ def binary_search_range_int(data, ip_int):
     return None
 
 
+def get_readonly_db_connection():
+    """Get a database connection from the pool (PostgreSQL) or SQLite."""
+    if DB_BACKEND == "postgresql" and pg_pool:
+        return pg_pool.getconn()
+    else:
+        conn = sqlite3.connect(f"file:{DB_FILE}?mode=ro", uri=True, timeout=2.0)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+
+def release_db_connection(conn):
+    """Release a database connection back to the pool."""
+    if DB_BACKEND == "postgresql" and pg_pool and conn:
+        pg_pool.putconn(conn)
+    elif conn:
+        conn.close()
+
+
+def query_hex_range_db(
+    conn,
+    table: str,
+    ip_hex: str,
+    select_columns: str = "*",
+) -> Optional[Dict[str, Any]]:
+    """Exact range lookup for hex IP tables."""
+    # PostgreSQL uses lowercase table names
+    table_map = {
+        "City_layer": "city_layer",
+        "Threat_level": "threat_level",
+        "asn_lookup": "asn_lookup",
+        "vpn_ranges": "vpn_ranges",
+        "user_type": "user_type",
+    }
+    allowed_tables = set(table_map.keys())
+    if table not in allowed_tables:
+        raise ValueError(f"Unsupported lookup table: {table}")
+
+    if DB_BACKEND == "postgresql":
+        pg_table = table_map.get(table, table.lower())
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            f"""
+            SELECT {select_columns}
+            FROM {pg_table}
+            WHERE start_ip <= %s AND end_ip >= %s
+            ORDER BY start_ip DESC
+            LIMIT 1
+            """,
+            (ip_hex, ip_hex)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        return dict(row) if row else None
+    else:
+        row = conn.execute(
+            f"""
+            SELECT {select_columns}
+            FROM {table}
+            WHERE start_ip <= ? AND end_ip >= ?
+            ORDER BY start_ip DESC
+            LIMIT 1
+            """,
+            (ip_hex, ip_hex)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def query_int_range_db(
+    conn,
+    table: str,
+    ip_int: int,
+    select_columns: str = "*",
+) -> Optional[Dict[str, Any]]:
+    """Exact range lookup for integer IP tables."""
+    if table != "ip_ranges":
+        raise ValueError(f"Unsupported lookup table: {table}")
+
+    if DB_BACKEND == "postgresql":
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            f"""
+            SELECT {select_columns}
+            FROM ip_ranges
+            WHERE start_ip <= %s AND end_ip >= %s
+            ORDER BY start_ip DESC
+            LIMIT 1
+            """,
+            (ip_int, ip_int)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        return dict(row) if row else None
+    else:
+        row = conn.execute(
+            f"""
+            SELECT {select_columns}
+            FROM {table}
+            WHERE start_ip <= ? AND end_ip >= ?
+            ORDER BY start_ip DESC
+            LIMIT 1
+            """,
+            (ip_int, ip_int)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def query_elevation_db(conn, lat: float, lon: float) -> Optional[float]:
+    """Read elevation from DB without preloading the full table."""
+    if DB_BACKEND == "postgresql":
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        # Cast to ::real to match REAL column type (float32 vs Python's float64)
+        cursor.execute(
+            "SELECT elevation FROM elevation_lookup WHERE latitude = %s::real AND longitude = %s::real LIMIT 1",
+            (lat, lon)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        if row and row["elevation"] is not None:
+            return float(row["elevation"])
+        return None
+    else:
+        row = conn.execute(
+            "SELECT elevation FROM elevation_lookup WHERE latitude = ? AND longitude = ? LIMIT 1",
+            (lat, lon)
+        ).fetchone()
+        if row and row["elevation"] is not None:
+            return float(row["elevation"])
+        return None
+
+
+def ensure_lookup_indexes(auto_create: bool = False) -> None:
+    """Check (and optionally create) lookup indexes used by DB mode."""
+    conn = sqlite3.connect(DB_FILE)
+    try:
+        existing = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='index'").fetchall()
+        }
+        missing = [name for name in LOOKUP_INDEX_SQL if name not in existing]
+        if not missing:
+            return
+
+        if not auto_create:
+            print(
+                "[WARN] Missing lookup indexes for DB mode: "
+                + ", ".join(missing)
+                + ". Set AUTO_CREATE_DB_INDEXES=1 once to build them."
+            )
+            return
+
+        print("Creating lookup indexes (one-time operation)...")
+        for name in missing:
+            print(f"  - {name}")
+            conn.execute(LOOKUP_INDEX_SQL[name])
+        conn.commit()
+        print("Lookup indexes created.")
+    finally:
+        conn.close()
+
+
+def load_reference_metadata(conn) -> None:
+    """Load small reference tables used for response enrichment."""
+    global countries, currencies, dial_codes, fallback_cities
+
+    if DB_BACKEND == "postgresql":
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM countries")
+        countries = {row["alpha2"]: dict(row) for row in cursor.fetchall()}
+        
+        cursor.execute("SELECT * FROM country_currency")
+        currencies = {row["country_code"]: dict(row) for row in cursor.fetchall()}
+        
+        cursor.execute("SELECT * FROM country_dial")
+        dial_codes = {row["country_code"]: row["dial_code"] for row in cursor.fetchall()}
+        
+        cursor.execute("SELECT * FROM fallback_city")
+        fallback_cities = {row["country_code"]: row["capital_city"] for row in cursor.fetchall()}
+        cursor.close()
+    else:
+        cursor = conn.execute("SELECT * FROM countries")
+        countries = {row["alpha2"]: dict(row) for row in cursor}
+
+        cursor = conn.execute("SELECT * FROM country_currency")
+        currencies = {row["country_code"]: dict(row) for row in cursor}
+
+        cursor = conn.execute("SELECT * FROM country_dial")
+        dial_codes = {row["country_code"]: row["dial_code"] for row in cursor}
+
+        cursor = conn.execute("SELECT * FROM fallback_city")
+        fallback_cities = {row["country_code"]: row["capital_city"] for row in cursor}
+
+
+def lookup_rows_db(ip_hex: str, ip_int: Optional[int]) -> Dict[str, Optional[Dict[str, Any]]]:
+    """Load lookup rows from database on demand to keep memory usage low."""
+    conn = get_readonly_db_connection()
+    try:
+        row_city = query_hex_range_db(conn, "City_layer", ip_hex)
+        row_asn = query_int_range_db(conn, "ip_ranges", ip_int) if ip_int is not None else None
+        row_asn_new = query_hex_range_db(conn, "asn_lookup", ip_hex)
+        row_vpn = query_hex_range_db(conn, "vpn_ranges", ip_hex, select_columns="start_ip, end_ip")
+        row_threat = query_hex_range_db(
+            conn, "Threat_level", ip_hex, select_columns="start_ip, end_ip, threat_level"
+        )
+        row_user_type = query_hex_range_db(
+            conn, "user_type", ip_hex, select_columns="start_ip, end_ip, ip_type"
+        )
+    finally:
+        release_db_connection(conn)
+
+    if row_user_type and row_user_type.get("ip_type") and not row_user_type.get("user_type"):
+        row_user_type["user_type"] = row_user_type["ip_type"]
+
+    return {
+        "city": row_city,
+        "asn": row_asn,
+        "asn_new": row_asn_new,
+        "vpn": row_vpn,
+        "threat": row_threat,
+        "user_type": row_user_type,
+    }
+
+
+def get_elevation_value(lat: Optional[float], lon: Optional[float]) -> Optional[float]:
+    """Return elevation from in-memory cache or DB on demand."""
+    if lat is None or lon is None:
+        return None
+
+    key = (lat, lon)
+    if key in elevation_data:
+        return elevation_data[key]
+
+    if LOOKUP_MODE == "memory":
+        return elevation_data.get(key)
+
+    try:
+        conn = get_readonly_db_connection()
+        try:
+            elev = query_elevation_db(conn, lat, lon)
+        finally:
+            release_db_connection(conn)
+        if elev is not None:
+            elevation_data[key] = elev
+        return elev
+    except Exception as e:
+        print(f"[WARN] elevation DB lookup failed: {e}")
+        return None
+
+
 def lookup_user_type_db(ip_hex: str) -> Optional[str]:
     """
     Fallback DB lookup for user_type when in-memory ranges miss.
     This protects against transient startup load issues or stale in-memory state.
     """
     try:
-        conn = sqlite3.connect(f"file:{DB_FILE}?mode=ro", uri=True, timeout=1.0)
-        conn.row_factory = sqlite3.Row
-        row = conn.execute(
-            """
-            SELECT ip_type
-            FROM user_type
-            WHERE start_ip <= ? AND end_ip >= ?
-            LIMIT 1
-            """,
-            (ip_hex, ip_hex)
-        ).fetchone()
-        conn.close()
-        if row and row["ip_type"]:
+        conn = get_readonly_db_connection()
+        try:
+            row = query_hex_range_db(conn, "user_type", ip_hex, select_columns="start_ip, end_ip, ip_type")
+        finally:
+            release_db_connection(conn)
+        if row and row.get("ip_type"):
             return row["ip_type"]
     except Exception as e:
         print(f"[WARN] user_type DB fallback failed: {e}")
@@ -358,96 +661,97 @@ def sanitize_netname(netname):
 
 
 def load_all_data():
-    """Load all lookup data into memory at startup."""
+    """Initialize lookup data according to configured lookup mode."""
     global city_data, asn_data, asn_new_data, user_type_data, countries, currencies, dial_codes, fallback_cities, vpn_range_data, threat_data, elevation_data
     
-    print("Loading data into memory...")
+    print(f"Initializing lookup data (mode={LOOKUP_MODE}, backend={DB_BACKEND})...")
     start = time.time()
     
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
+    # Get connection from appropriate backend
+    if DB_BACKEND == "postgresql" and pg_pool:
+        conn = pg_pool.getconn()
+    else:
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row
     
-    # Load City_layer (sorted by start_ip)
-    print("  Loading City_layer...")
-    cursor = conn.execute("SELECT * FROM City_layer ORDER BY start_ip")
-    city_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
-    print(f"    Loaded {len(city_data):,} city ranges")
-    
-    # Load ip_ranges (sorted by start_ip)
-    print("  Loading ip_ranges...")
-    cursor = conn.execute("SELECT * FROM ip_ranges ORDER BY start_ip")
-    asn_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
-    print(f"    Loaded {len(asn_data):,} ASN ranges")
-    
-    # Load asn_lookup (sorted by start_ip)
-    print("  Loading asn_lookup...")
-    cursor = conn.execute("SELECT * FROM asn_lookup ORDER BY start_ip")
-    asn_new_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
-    
-    # Load vpn_ranges
-    print("  Loading vpn_ranges...")
     try:
-        cursor = conn.execute("SELECT start_ip, end_ip FROM vpn_ranges ORDER BY start_ip")
-        # We store minimal data: Just existence implies VPN.
-        vpn_range_data = [(row["start_ip"], row["end_ip"], {"is_vpn": True}) for row in cursor]
-        print(f"    Loaded {len(vpn_range_data):,} VPN ranges")
-    except Exception as e:
-        print(f"    [WARN] Could not load vpn_ranges: {e}")
-        vpn_range_data = []
+        print("  Loading country metadata...")
+        load_reference_metadata(conn)
 
-    # Load elevation_lookup
-    print("  Loading elevation_lookup...")
-    try:
-        cursor = conn.execute("SELECT latitude, longitude, elevation FROM elevation_lookup")
-        elevation_data = {(row["latitude"], row["longitude"]): row["elevation"] for row in cursor}
-        print(f"    Loaded {len(elevation_data):,} elevation points")
-    except Exception as e:
-        print(f"    [WARN] Could not load elevation_lookup: {e}")
-        elevation_data = {}
+        if LOOKUP_MODE == "memory":
+            print("  Loading range tables into RAM...")
+            # Note: Memory mode with PostgreSQL would need cursor iteration
+            # For now, memory mode uses SQLite fallback for bulk load
+            if DB_BACKEND == "sqlite":
+                cursor = conn.execute("SELECT * FROM City_layer ORDER BY start_ip")
+                city_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
+                print(f"    Loaded {len(city_data):,} city ranges")
 
-    # Load user_type
-    print("  Loading user_type...")
-    try:
-        cursor = conn.execute("SELECT start_ip, end_ip, ip_type FROM user_type ORDER BY start_ip")
-        user_type_data = [(row["start_ip"], row["end_ip"], {"user_type": row["ip_type"]}) for row in cursor]
-        print(f"    Loaded {len(user_type_data):,} user_type ranges")
-    except Exception as e:
-        print(f"    [WARN] Could not load user_type: {e}")
-        user_type_data = []
+                cursor = conn.execute("SELECT * FROM ip_ranges ORDER BY start_ip")
+                asn_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
+                print(f"    Loaded {len(asn_data):,} ASN ranges")
 
-    except Exception as e:
-        print(f"    [WARN] Could not load user_type: {e}")
-        user_type_data = []
+                cursor = conn.execute("SELECT * FROM asn_lookup ORDER BY start_ip")
+                asn_new_data = [(row["start_ip"], row["end_ip"], dict(row)) for row in cursor]
+                print(f"    Loaded {len(asn_new_data):,} new ASN ranges")
 
-    # Load Threat_level
-    print("  Loading Threat_level...")
-    try:
-        cursor = conn.execute("SELECT start_ip, end_ip, threat_level FROM Threat_level ORDER BY start_ip")
-        threat_data = [(row["start_ip"], row["end_ip"], {"threat_level": row["threat_level"]}) for row in cursor]
-        print(f"    Loaded {len(threat_data):,} Threat_level ranges")
-    except Exception as e:
-        print(f"    [WARN] Could not load Threat_level: {e}")
-        threat_data = []
+                try:
+                    cursor = conn.execute("SELECT start_ip, end_ip FROM vpn_ranges ORDER BY start_ip")
+                    vpn_range_data = [(row["start_ip"], row["end_ip"], {"is_vpn": True}) for row in cursor]
+                    print(f"    Loaded {len(vpn_range_data):,} VPN ranges")
+                except Exception as e:
+                    print(f"    [WARN] Could not load vpn_ranges: {e}")
+                    vpn_range_data = []
 
-    print(f"    Loaded {len(asn_new_data):,} new ASN ranges")
-    
-    # Load country metadata
-    print("  Loading country metadata...")
-    cursor = conn.execute("SELECT * FROM countries")
-    countries = {row["alpha2"]: dict(row) for row in cursor}
-    
-    cursor = conn.execute("SELECT * FROM country_currency")
-    currencies = {row["country_code"]: dict(row) for row in cursor}
-    
-    cursor = conn.execute("SELECT * FROM country_dial")
-    dial_codes = {row["country_code"]: row["dial_code"] for row in cursor}
-    
-    cursor = conn.execute("SELECT * FROM fallback_city")
-    fallback_cities = {row["country_code"]: row["capital_city"] for row in cursor}
-    
-    conn.close()
-    
-    print(f"Data loaded in {time.time() - start:.2f}s")
+                try:
+                    cursor = conn.execute("SELECT latitude, longitude, elevation FROM elevation_lookup")
+                    elevation_data = {(row["latitude"], row["longitude"]): row["elevation"] for row in cursor}
+                    print(f"    Loaded {len(elevation_data):,} elevation points")
+                except Exception as e:
+                    print(f"    [WARN] Could not load elevation_lookup: {e}")
+                    elevation_data = {}
+
+                try:
+                    cursor = conn.execute("SELECT start_ip, end_ip, ip_type FROM user_type ORDER BY start_ip")
+                    user_type_data = [(row["start_ip"], row["end_ip"], {"user_type": row["ip_type"]}) for row in cursor]
+                    print(f"    Loaded {len(user_type_data):,} user_type ranges")
+                except Exception as e:
+                    print(f"    [WARN] Could not load user_type: {e}")
+                    user_type_data = []
+
+                try:
+                    cursor = conn.execute("SELECT start_ip, end_ip, threat_level FROM Threat_level ORDER BY start_ip")
+                    threat_data = [(row["start_ip"], row["end_ip"], {"threat_level": row["threat_level"]}) for row in cursor]
+                    print(f"    Loaded {len(threat_data):,} Threat_level ranges")
+                except Exception as e:
+                    print(f"    [WARN] Could not load Threat_level: {e}")
+                    threat_data = []
+            else:
+                print("  Memory mode with PostgreSQL not supported, using DB lookup mode.")
+                city_data = []
+                asn_data = []
+                asn_new_data = []
+                vpn_range_data = []
+                threat_data = []
+                user_type_data = []
+                elevation_data = {}
+        else:
+            # Keep only tiny metadata in memory. Heavy range tables are queried on demand.
+            city_data = []
+            asn_data = []
+            asn_new_data = []
+            vpn_range_data = []
+            threat_data = []
+            user_type_data = []
+            elevation_data = {}
+            print(f"  DB lookup mode enabled ({DB_BACKEND}): skipped bulk in-memory range preload.")
+    finally:
+        if DB_BACKEND == "postgresql" and pg_pool:
+            pg_pool.putconn(conn)
+        else:
+            conn.close()
+
+    print(f"Initialization finished in {time.time() - start:.2f}s")
 
 
 def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
@@ -477,17 +781,27 @@ def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
     ip_hex = ip_obj.packed.hex().zfill(32)
     ip_int = int(ip_obj) if ip_obj.version == 4 else None
     
-    # Binary search in memory
-    row_city = binary_search_range_hex(city_data, ip_hex)
-    row_asn = binary_search_range_int(asn_data, ip_int) if ip_int is not None else None
-    row_asn_new = binary_search_range_hex(asn_new_data, ip_hex)
-    row_vpn = binary_search_range_hex(vpn_range_data, ip_hex)
-    row_threat = binary_search_range_hex(threat_data, ip_hex)
-    row_user_type = binary_search_range_hex(user_type_data, ip_hex)
-    if row_user_type is None:
-        fallback_user_type = lookup_user_type_db(ip_hex)
-        if fallback_user_type:
-            row_user_type = {"user_type": fallback_user_type}
+    if LOOKUP_MODE == "memory":
+        # Binary search in preloaded arrays.
+        row_city = binary_search_range_hex(city_data, ip_hex)
+        row_asn = binary_search_range_int(asn_data, ip_int) if ip_int is not None else None
+        row_asn_new = binary_search_range_hex(asn_new_data, ip_hex)
+        row_vpn = binary_search_range_hex(vpn_range_data, ip_hex)
+        row_threat = binary_search_range_hex(threat_data, ip_hex)
+        row_user_type = binary_search_range_hex(user_type_data, ip_hex)
+        if row_user_type is None:
+            fallback_user_type = lookup_user_type_db(ip_hex)
+            if fallback_user_type:
+                row_user_type = {"user_type": fallback_user_type}
+    else:
+        # Low-memory mode: query SQLite per request and rely on request cache.
+        db_rows = lookup_rows_db(ip_hex, ip_int)
+        row_city = db_rows["city"]
+        row_asn = db_rows["asn"]
+        row_asn_new = db_rows["asn_new"]
+        row_vpn = db_rows["vpn"]
+        row_threat = db_rows["threat"]
+        row_user_type = db_rows["user_type"]
 
     result = None
     
@@ -506,24 +820,30 @@ def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
             "ip": ip, "found": True, "range_start": s_ip, "range_end": e_ip,
             "country_code": row_city.get("country_iso_code") or "N/A",  # Renamed from country
             "country_name": row_city.get("country_name") or "N/A",      # Added
-            "is_eu": (row_city.get("country_iso_code") or "") in EU_COUNTRIES,
-            "netname": sanitize_netname(row_city.get("netname")) or "N/A",
-            "org": row_city.get("org") or "N/A",
-            "asn": row_city.get("asn"),
+            "country_code": row_city.get("country_iso_code") or "N/A",
+            "country_name": row_city.get("country_name"),
+            "is_eu": row_city.get("country_iso_code") in EU_COUNTRIES,
+            
+            # Prefer 'org' for 'netname' as requested, fallback to raw 'netname'
+            "netname": sanitize_netname(row_city.get("org") or row_city.get("netname")), 
+            
+            "org": row_city.get("org"),
             "source": row_city.get("source") or "city_layer", 
             "city": row_city.get("city_name"), 
             "is_fallback": bool(row_city.get("is_fallback", 0)),
-            "is_vpn": bool(row_city.get("is_vpn", 0)),
+            "is_vpn": bool(row_city.get("is_vpn", 0) or row_vpn),
             "region": row_city.get("subdivision_1_name"),
-            "postal": row_city.get("postal_code"), "timezone": row_city.get("time_zone"),
+            "postal": row_city.get("postal_code"), 
+            "timezone": row_city.get("time_zone"),
             "continent": row_city.get("continent_name"),
-            "latitude": row_city.get("latitude"), "longitude": row_city.get("longitude"),
+            "latitude": row_city.get("latitude"), 
+            "longitude": row_city.get("longitude"),
             "is_multicast": bool(row_city.get("is_Multicast", 0)),
             "is_crawler": bool(row_city.get("is_crawler", 0)),
             "ip_type": ip_type,
-            "threat_level": row_threat["threat_level"] if row_threat else "low", # Default to low if not found
+            "threat_level": row_threat["threat_level"] if row_threat else ip_cache.get(ip, {}).get("threat_level", "low"),
             "user_type": row_user_type["user_type"] if row_user_type else "N/A",
-            "elevation": elevation_data.get((row_city.get("latitude"), row_city.get("longitude"))),
+            "elevation": get_elevation_value(row_city.get("latitude"), row_city.get("longitude")),
             "domain": None, # Initialize domain
             "utc_offset": row_city.get("utc_offset"), # Added for new geolocation data
             "zip_code": row_city.get("zip_code") # Added for postal codes from iptwo
@@ -531,7 +851,8 @@ def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
         if row_asn:
             # Prefer IP range data if City layer lacked it (common for RIPE data)
             if result["netname"] == "N/A" or result["netname"] is None:
-                result["netname"] = sanitize_netname(row_asn.get("netname"))
+                # Prefer 'org' for fallback netname too
+                result["netname"] = sanitize_netname(row_asn.get("org") or row_asn.get("netname"))
 
             if result["org"] == "N/A" or result["org"] is None:
                 result["org"] = row_asn.get("org")
@@ -546,6 +867,11 @@ def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
             if result["org"] == "N/A":
                 result["org"] = row_asn_new.get("org")
             result["source"] += "+mmdb_asn"
+            
+            # If netname is still missing/bad, try asn_new org
+            if result["netname"] == "N/A" or result["netname"] is None:
+                 result["netname"] = sanitize_netname(row_asn_new.get("org"))
+
         # Add datacenter detection
         result["is_datacenter"] = is_datacenter(result.get("asn"), result.get("asn_name"))
     
@@ -562,7 +888,11 @@ def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
             "country_code": row_asn.get("country"), # Renamed
             "country_name": c_name,                 # Added
             "is_eu": country_code in EU_COUNTRIES,
-            "netname": sanitize_netname(row_asn.get("netname")), "org": row_asn.get("org"), "source": row_asn.get("source"),
+            
+            # Prefer 'org' for 'netname' here too
+            "netname": sanitize_netname(row_asn.get("org") or row_asn.get("netname")), 
+            
+            "org": row_asn.get("org"), "source": row_asn.get("source"),
             "city": None, "region": None, "postal": None, "timezone": None, 
             "is_vpn": bool(row_asn.get("is_vpn", 0)),
             "latitude": None, "longitude": None, "ip_type": ip_type,
@@ -719,11 +1049,49 @@ def sync_get_ip_info(ip: str) -> Optional[Dict[str, Any]]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan handler."""
-    global executor
+    global executor, pg_pool
+    
+    print(
+        f"Startup config: DB_BACKEND={DB_BACKEND}, LOOKUP_MODE={LOOKUP_MODE}, LOOKUP_WORKERS={NUM_WORKERS}"
+    )
+    
+    # Initialize PostgreSQL connection pool
+    if DB_BACKEND == "postgresql":
+        print(f"Initializing PostgreSQL connection pool (min={PG_MIN_CONN}, max={PG_MAX_CONN})...")
+        try:
+            pg_pool = psycopg2.pool.ThreadedConnectionPool(
+                PG_MIN_CONN,
+                PG_MAX_CONN,
+                host=PG_HOST,
+                port=PG_PORT,
+                database=PG_DATABASE,
+                user=PG_USER,
+                password=PG_PASSWORD,
+                options="-c search_path=app,analytics,lookup,public"
+            )
+            print(f"  PostgreSQL pool created successfully")
+            
+            # Share pool with other modules
+            auth.pg_pool = pg_pool
+            analytics.pg_pool = pg_pool
+            licenses.pg_pool = pg_pool
+            
+        except Exception as e:
+            print(f"  [ERROR] Failed to create PostgreSQL pool: {e}")
+            print(f"  [WARN] Falling back to SQLite")
+            pg_pool = None
+    else:
+        ensure_lookup_indexes(auto_create=AUTO_CREATE_DB_INDEXES)
+    
     load_all_data()
     executor = ThreadPoolExecutor(max_workers=NUM_WORKERS)
     yield
     executor.shutdown(wait=True)
+    
+    # Close PostgreSQL pool on shutdown
+    if pg_pool:
+        print("Closing PostgreSQL connection pool...")
+        pg_pool.closeall()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -755,6 +1123,17 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "fallback-secret-key"), https_only=False, same_site="lax")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> FileResponse:
+    # Explicit root favicon route helps browsers that ignore page-level icon tags.
+    return FileResponse("static/img/logo.png", media_type="image/png")
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+async def apple_touch_icon() -> FileResponse:
+    return FileResponse("static/img/logo.png", media_type="image/png")
 
 DEFAULT_CHECKOUT_PLAN = "start"
 CHECKOUT_PLAN_CATALOG = {
@@ -891,7 +1270,7 @@ def signin_with_next_url(next_path: str) -> str:
 
 
 async def get_full_ip_info(ip: str) -> Optional[Dict[str, Any]]:
-    """Async wrapper for in-memory lookup."""
+    """Async wrapper for IP lookup (memory or DB mode)."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, sync_get_ip_info, ip)
 
@@ -1044,18 +1423,33 @@ def cleanup_user_analytics(project_ids):
     if not project_ids:
         return
 
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    placeholders = ",".join("?" for _ in project_ids)
-
-    for table in ("analytics_events", "analytics_aggregates_hourly", "analytics_aggregates_daily"):
+    if DB_BACKEND == "postgresql":
+        conn = analytics.get_db_connection()
         try:
-            cursor.execute(f"DELETE FROM {table} WHERE project_id IN ({placeholders})", project_ids)
-        except sqlite3.Error as e:
-            print(f"[WARN] Failed to delete analytics rows from {table}: {e}")
+            cursor = conn.cursor()
+            for table in ("analytics_events", "analytics_aggregates_hourly", "analytics_aggregates_daily"):
+                try:
+                    cursor.execute(f"DELETE FROM {table} WHERE project_id = ANY(%s)", (project_ids,))
+                except Exception as e:
+                    print(f"[WARN] Failed to delete analytics rows from {table}: {e}")
+            conn.commit()
+            cursor.close()
+        finally:
+            analytics.release_db_connection(conn)
+        return
 
-    conn.commit()
-    conn.close()
+    conn = sqlite3.connect(DB_FILE)
+    try:
+        cursor = conn.cursor()
+        placeholders = ",".join("?" for _ in project_ids)
+        for table in ("analytics_events", "analytics_aggregates_hourly", "analytics_aggregates_daily"):
+            try:
+                cursor.execute(f"DELETE FROM {table} WHERE project_id IN ({placeholders})", project_ids)
+            except sqlite3.Error as e:
+                print(f"[WARN] Failed to delete analytics rows from {table}: {e}")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 @app.get("/api/user")
@@ -1082,17 +1476,16 @@ async def profile_page(request: Request, success: str = "", error: str = ""):
     }
     request.session["user"] = session_user
 
-    conn = auth.get_db()
-    cursor = conn.cursor()
-    project_count = cursor.execute(
-        "SELECT COUNT(*) AS c FROM projects WHERE user_id = ?",
-        (user_data["id"],)
-    ).fetchone()["c"]
-    license_count = cursor.execute(
-        "SELECT COUNT(*) AS c FROM licenses WHERE user_id = ?",
-        (user_data["id"],)
-    ).fetchone()["c"]
-    conn.close()
+    conn = auth.get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT COUNT(*) AS c FROM projects WHERE user_id = %s", (user_data["id"],))
+        project_count = int(cursor.fetchone()["c"] or 0)
+        cursor.execute("SELECT COUNT(*) AS c FROM licenses WHERE user_id = %s", (user_data["id"],))
+        license_count = int(cursor.fetchone()["c"] or 0)
+        cursor.close()
+    finally:
+        auth.release_db_connection(conn)
 
     created_at_display = str(user_data.get("created_at") or "N/A").replace("T", " ")
     success_message = PROFILE_SUCCESS_MESSAGES.get(success, "")
@@ -1427,10 +1820,34 @@ async def google_callback(request: Request):
 def save_elevation_to_db(lat: float, lon: float, elev: float):
     """Save fetched elevation to database (runs in background thread)."""
     try:
+        if DB_BACKEND == "postgresql":
+            conn = analytics.get_db_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO elevation_lookup (latitude, longitude, elevation)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (latitude, longitude) DO UPDATE
+                    SET elevation = EXCLUDED.elevation
+                    """,
+                    (lat, lon, elev),
+                )
+                conn.commit()
+                cursor.close()
+            finally:
+                analytics.release_db_connection(conn)
+            return
+
         conn = sqlite3.connect(DB_FILE)
-        conn.execute("INSERT OR REPLACE INTO elevation_lookup (latitude, longitude, elevation) VALUES (?, ?, ?)", (lat, lon, elev))
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO elevation_lookup (latitude, longitude, elevation) VALUES (?, ?, ?)",
+                (lat, lon, elev),
+            )
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"Failed to save elevation to DB: {e}")
 
@@ -1669,9 +2086,7 @@ async def dashboard_page(request: Request):
         
         if user:
             # Fetch fresh user data from DB
-            conn = auth.get_db()
-            user_row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
-            conn.close()
+            user_row = auth.get_user_by_id(user["id"])
             
             if user_row:
                 # Update session user with fresh data
@@ -1768,38 +2183,45 @@ def check_api_key_limit(api_key: str) -> dict:
     if not api_key:
         return {"allowed": False, "error": "Sign in required to use API."}
     
-    conn = auth.get_db()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT id, api_requests_count, last_api_usage_date FROM users WHERE api_key = ?", (api_key,))
-    user = cursor.fetchone()
-    
-    if not user:
-        conn.close()
-        return {"allowed": False, "error": "Invalid API Key."}
-    
-    user_id = user['id']
-    count = user['api_requests_count']
-    last_date = user['last_api_usage_date']
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    
-    # Reset counter if new day
-    if last_date != today:
-        count = 0
-    
-    if count >= 100:
-        conn.close()
-        return {"allowed": False, "error": "Daily limit of 100 requests exceeded."}
-    
-    # Increment and update
-    cursor.execute(
-        "UPDATE users SET api_requests_count = ?, last_api_usage_date = ? WHERE id = ?",
-        (count + 1, today, user_id)
-    )
-    conn.commit()
-    conn.close()
-    
-    return {"allowed": True, "error": None}
+    conn = auth.get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT id, api_requests_count, last_api_usage_date FROM users WHERE api_key = %s",
+            (api_key,),
+        )
+        user = cursor.fetchone()
+        if not user:
+            cursor.close()
+            return {"allowed": False, "error": "Invalid API Key."}
+
+        user_id = user["id"]
+        count = user.get("api_requests_count") or 0
+        last_date_raw = user.get("last_api_usage_date")
+        if isinstance(last_date_raw, datetime):
+            last_date = last_date_raw.date().isoformat()
+        else:
+            last_date = str(last_date_raw or "")
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+
+        # Reset counter if new day
+        if last_date != today:
+            count = 0
+
+        if count >= 100:
+            cursor.close()
+            return {"allowed": False, "error": "Daily limit of 100 requests exceeded."}
+
+        # Increment and update
+        cursor.execute(
+            "UPDATE users SET api_requests_count = %s, last_api_usage_date = %s WHERE id = %s",
+            (count + 1, today, user_id),
+        )
+        conn.commit()
+        cursor.close()
+        return {"allowed": True, "error": None}
+    finally:
+        auth.release_db_connection(conn)
 
 
 if __name__ == "__main__":

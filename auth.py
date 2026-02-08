@@ -3,7 +3,9 @@ Authentication module for IP Intelligence.
 Handles user database, password hashing, sessions, and Google OAuth.
 """
 
-import sqlite3
+import psycopg2
+import psycopg2.pool
+from psycopg2.extras import RealDictCursor
 import os
 from datetime import datetime
 from typing import Optional, Dict, Any
@@ -18,8 +20,31 @@ load_dotenv()
 # Password hashing context
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-# Database file
-USERS_DB = "users.db"
+# PostgreSQL Configuration
+PG_HOST = os.getenv("PG_HOST", "/tmp")
+PG_API_DB = os.getenv("PG_DATABASE", "truegeoip")
+PG_USER = os.getenv("PG_USER", "postgres")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "Islam1717@")
+
+# We'll use a pool if initialized by main.py, otherwise create new connections
+pg_pool = None
+
+def get_db_connection():
+    if pg_pool:
+        return pg_pool.getconn()
+    return psycopg2.connect(
+        host=PG_HOST,
+        database=PG_API_DB,
+        user=PG_USER,
+        password=PG_PASSWORD,
+        options="-c search_path=app,analytics,lookup,public"
+    )
+
+def release_db_connection(conn):
+    if pg_pool:
+        pg_pool.putconn(conn)
+    else:
+        conn.close()
 
 # OAuth configuration
 config = Config(environ=os.environ)
@@ -191,67 +216,94 @@ import uuid
 
 def init_db():
     """Initialize the users database."""
-    conn = sqlite3.connect(USERS_DB)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT,
-            name TEXT,
-            google_id TEXT,
-            verification_code TEXT,
-            is_verified INTEGER DEFAULT 0,
-            api_key TEXT UNIQUE,
-            api_requests_count INTEGER DEFAULT 0,
-            last_api_usage_date TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Migration: Check if columns exist
-    cursor = conn.execute("PRAGMA table_info(users)")
-    columns = [row[1] for row in cursor.fetchall()]
-    
-    if "is_verified" not in columns:
-        print("Migrating database: adding is_verified column")
-        conn.execute("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0")
-        conn.execute("UPDATE users SET is_verified = 1") # Mark existing users as verified
-    
-    if "verification_code" not in columns:
-        print("Migrating database: adding verification_code column")
-        conn.execute("ALTER TABLE users ADD COLUMN verification_code TEXT")
+    # Tables are now managed via migration scripts or manual setup.
+    # This function checks connectivity and essential tables for startup.
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Check if users table exists
+        cursor.execute("""
+            SELECT exists(
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'users'
+            );
+        """)
+        exists = cursor.fetchone()[0]
+        
+        if not exists:
+            # Basic schema creation if missing (failsafe)
+            print("Creating users table...")
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT,
+                    name TEXT,
+                    google_id TEXT,
+                    verification_code TEXT,
+                    is_verified INTEGER DEFAULT 0,
+                    api_key TEXT UNIQUE,
+                    api_requests_count INTEGER DEFAULT 0,
+                    last_api_usage_date TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    plan TEXT DEFAULT 'free'
+                );
+            ''')
+            
+            print("Creating projects table...")
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+            ''')
+            
+            print("Creating api_keys table...")
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS api_keys (
+                    id SERIAL PRIMARY KEY,
+                    key TEXT UNIQUE NOT NULL,
+                    project_id TEXT NOT NULL,
+                    name TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    last_used TEXT,
+                    FOREIGN KEY (project_id) REFERENCES projects(id)
+                );
+            ''')
+            
+            print("Creating licenses table...")
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS licenses (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    license_key TEXT UNIQUE NOT NULL,
+                    plan_type TEXT DEFAULT 'annual_db',
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP,
+                    last_downloaded_at TIMESTAMP,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                );
+            ''')
+            
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key);")
+            conn.commit()
+            print("Users database tables initialized.")
+            
+        cursor.close()
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+    finally:
+        release_db_connection(conn)
 
-    if "api_key" not in columns:
-        print("Migrating database: adding api_key column")
-        conn.execute("ALTER TABLE users ADD COLUMN api_key TEXT")
-        # Generate keys for existing users
-        existing_users = conn.execute("SELECT id FROM users").fetchall()
-        for user in existing_users:
-            new_key = str(uuid.uuid4())
-            conn.execute("UPDATE users SET api_key = ? WHERE id = ?", (new_key, user[0]))
-        # Add index after populating data
-        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)")
-    
-    if "api_requests_count" not in columns:
-        print("Migrating database: adding api_requests_count column")
-        conn.execute("ALTER TABLE users ADD COLUMN api_requests_count INTEGER DEFAULT 0")
-
-    if "last_api_usage_date" not in columns:
-        print("Migrating database: adding last_api_usage_date column")
-        conn.execute("ALTER TABLE users ADD COLUMN last_api_usage_date TEXT")
-    
-    conn.commit()
-    conn.close()
-    print(f"Users database initialized: {USERS_DB}")
 
 
-def get_db():
-    """Get database connection."""
-    conn = sqlite3.connect(USERS_DB)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Removed get_db as it was specific to SQLite. Use get_db_connection instead.
+
 
 
 # Password functions
@@ -271,21 +323,21 @@ def generate_code(length=6):
 # User CRUD operations
 def create_user(email: str, password: str, name: str = None) -> Optional[Dict[str, Any]]:
     """Create a new user with email/password (unverified)."""
-    conn = get_db()
-    cursor = conn.cursor()
-    
+    conn = get_db_connection()
     try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
         password_hash = hash_password(password)
         verification_code = generate_code()
         api_key = str(uuid.uuid4())
         
         cursor.execute(
-            "INSERT INTO users (email, password_hash, name, verification_code, is_verified, api_key) VALUES (?, ?, ?, ?, 0, ?)",
+            "INSERT INTO users (email, password_hash, name, verification_code, is_verified, api_key) VALUES (%s, %s, %s, %s, 0, %s) RETURNING id",
             (email.lower(), password_hash, name or email.split('@')[0], verification_code, api_key)
         )
+        user_id = cursor.fetchone()['id']
         conn.commit()
-        user_id = cursor.lastrowid
-        conn.close()
+        cursor.close()
         
         return {
             "id": user_id, 
@@ -294,94 +346,162 @@ def create_user(email: str, password: str, name: str = None) -> Optional[Dict[st
             "verification_code": verification_code,
             "api_key": api_key
         }
-    except sqlite3.IntegrityError:
-        conn.close()
+    except psycopg2.IntegrityError:
+        conn.rollback()
         return None  # Email already exists
+    except Exception as e:
+        print(f"Create user error: {e}")
+        conn.rollback()
+        return None
+    finally:
+        release_db_connection(conn)
 
 def verify_user_email(email: str, code: str) -> bool:
     """Verify user email with code."""
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        "SELECT * FROM users WHERE email = ? AND verification_code = ?",
-        (email.lower(), code)
-    )
-    user = cursor.fetchone()
-    
-    if user:
-        cursor.execute("UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = ?", (user['id'],))
-        conn.commit()
-        conn.close()
-        return True
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-    conn.close()
-    return False
+        cursor.execute(
+            "SELECT id FROM users WHERE email = %s AND verification_code = %s",
+            (email.lower(), code)
+        )
+        user = cursor.fetchone()
+        
+        if user:
+            cursor.execute("UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = %s", (user['id'],))
+            conn.commit()
+            cursor.close()
+            return True
+        
+        cursor.close()
+        return False
+    finally:
+        release_db_connection(conn)
+
+def create_or_get_google_user(email: str, google_id: str, name: str) -> Dict[str, Any]:
+    """Create or get a user from Google OAuth."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Check if user exists by google_id or email
+        cursor.execute(
+            "SELECT * FROM users WHERE google_id = %s OR email = %s",
+            (google_id, email.lower())
+        )
+        row = cursor.fetchone()
+        
+        if row:
+            # Update google_id if not set (user registered with email first)
+            if not row['google_id']:
+                cursor.execute(
+                    "UPDATE users SET google_id = %s, name = %s WHERE email = %s",
+                    (google_id, name, email.lower())
+                )
+                conn.commit()
+            cursor.close()
+            return {"id": row['id'], "email": row['email'], "name": row['name'] or name}
+        
+        # Create new user
+        api_key = str(uuid.uuid4())
+        cursor.execute(
+            "INSERT INTO users (email, google_id, name, api_key, is_verified) VALUES (%s, %s, %s, %s, 1) RETURNING id",
+            (email.lower(), google_id, name, api_key)
+        )
+        user_id = cursor.fetchone()['id']
+        conn.commit()
+        cursor.close()
+        return {"id": user_id, "email": email.lower(), "name": name}
+    finally:
+        release_db_connection(conn)
+
+def validate_api_key(api_key: str) -> Optional[Dict[str, Any]]:
+    """
+    Validate an API key and return project info.
+    Returns None if invalid.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute("""
+            SELECT ak.project_id, p.user_id, p.name as project_name, u.plan
+            FROM api_keys ak
+            JOIN projects p ON ak.project_id = p.id
+            JOIN users u ON p.user_id = u.id
+            WHERE ak.key = %s
+        """, (api_key,))
+        row = cursor.fetchone()
+        
+        if row:
+            # Update last_used
+            cursor.execute("UPDATE api_keys SET last_used = %s WHERE key = %s", 
+                          (datetime.utcnow().isoformat(), api_key))
+            conn.commit()
+            cursor.close()
+            return dict(row)
+        
+        cursor.close()
+        return None
+    finally:
+        release_db_connection(conn)
 
 def get_db_user_by_email(email: str): # Helper to avoid circular deps if needed
     return get_user_by_email(email)
 
 
 
-def create_or_get_google_user(email: str, google_id: str, name: str) -> Dict[str, Any]:
-    """Create or get a user from Google OAuth."""
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    # Check if user exists by google_id or email
-    cursor.execute(
-        "SELECT * FROM users WHERE google_id = ? OR email = ?",
-        (google_id, email.lower())
-    )
-    row = cursor.fetchone()
-    
-    if row:
-        # Update google_id if not set (user registered with email first)
-        if not row['google_id']:
-            cursor.execute(
-                "UPDATE users SET google_id = ?, name = ? WHERE email = ?",
-                (google_id, name, email.lower())
-            )
-            conn.commit()
-        conn.close()
-        return {"id": row['id'], "email": row['email'], "name": row['name'] or name}
-    
-    # Create new user
-    api_key = str(uuid.uuid4())
-    cursor.execute(
-        "INSERT INTO users (email, google_id, name, api_key) VALUES (?, ?, ?, ?)",
-        (email.lower(), google_id, name, api_key)
-    )
-    conn.commit()
-    user_id = cursor.lastrowid
-    conn.close()
-    return {"id": user_id, "email": email.lower(), "name": name}
+def create_project(user_id: int, name: str) -> Dict[str, Any]:
+    """Create a new project for a user."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        project_id = generate_project_id()
+        cursor.execute(
+            "INSERT INTO projects (id, user_id, name) VALUES (%s, %s, %s)",
+            (project_id, user_id, name)
+        )
+        
+        # Also create a default API key
+        api_key = generate_api_key()
+        cursor.execute(
+            "INSERT INTO api_keys (key, project_id, name) VALUES (%s, %s, %s)",
+            (api_key, project_id, "Default Key")
+        )
+        conn.commit()
+        cursor.close()
+        
+        return {"project_id": project_id, "api_key": api_key, "name": name}
+    finally:
+        release_db_connection(conn)
 
 
 def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     """Get a user by email."""
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (email.lower(),))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row:
-        return dict(row)
-    return None
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+        row = cursor.fetchone()
+        cursor.close()
+        return dict(row) if row else None
+    finally:
+        release_db_connection(conn)
 
 
 def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
     """Get a user by ID."""
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-    row = cursor.fetchone()
-    conn.close()
-
-    if row:
-        return dict(row)
-    return None
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        row = cursor.fetchone()
+        cursor.close()
+        return dict(row) if row else None
+    finally:
+        release_db_connection(conn)
 
 
 def update_user_name(user_id: int, name: str) -> bool:
@@ -390,13 +510,16 @@ def update_user_name(user_id: int, name: str) -> bool:
     if not clean_name:
         return False
 
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET name = ? WHERE id = ?", (clean_name, user_id))
-    conn.commit()
-    updated = cursor.rowcount > 0
-    conn.close()
-    return updated
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET name = %s WHERE id = %s", (clean_name, user_id))
+        conn.commit()
+        updated = cursor.rowcount > 0
+        cursor.close()
+        return updated
+    finally:
+        release_db_connection(conn)
 
 
 def delete_user_account(user_id: int) -> Dict[str, Any]:
@@ -404,33 +527,36 @@ def delete_user_account(user_id: int) -> Dict[str, Any]:
     Delete a user and related records in users.db.
     Returns metadata including affected project IDs for downstream cleanup.
     """
-    conn = get_db()
-    conn.execute("PRAGMA foreign_keys = ON")
-    cursor = conn.cursor()
-
+    conn = get_db_connection()
     try:
-        project_rows = cursor.execute(
-            "SELECT id FROM projects WHERE user_id = ?",
-            (user_id,)
-        ).fetchall()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # In PostgreSQL we can rely on CASCADE if configured, but to be safe and match logic:
+        # Get project IDs
+        cursor.execute("SELECT id FROM projects WHERE user_id = %s", (user_id,))
+        project_rows = cursor.fetchall()
         project_ids = [row["id"] for row in project_rows]
 
         if project_ids:
-            placeholders = ",".join("?" for _ in project_ids)
-            cursor.execute(f"DELETE FROM api_keys WHERE project_id IN ({placeholders})", project_ids)
-            cursor.execute(f"DELETE FROM projects WHERE id IN ({placeholders})", project_ids)
+            # Delete API keys and Projects
+            # Note: execute(query, (tuple,)) requires tuple for IN clause in psycopg2?
+            # Better to use ANY(%s) or build query manually safely
+            cursor.execute("DELETE FROM api_keys WHERE project_id = ANY(%s)", (project_ids,))
+            cursor.execute("DELETE FROM projects WHERE id = ANY(%s)", (project_ids,))
 
-        cursor.execute("DELETE FROM licenses WHERE user_id = ?", (user_id,))
-        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        cursor.execute("DELETE FROM licenses WHERE user_id = %s", (user_id,))
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
         deleted_user = cursor.rowcount > 0
 
         conn.commit()
+        cursor.close()
         return {"deleted": deleted_user, "project_ids": project_ids}
-    except Exception:
+    except Exception as e:
+        print(f"Delete user error: {e}")
         conn.rollback()
         raise
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 
 def authenticate_user(email: str, password: str) -> Optional[Dict[str, Any]]:

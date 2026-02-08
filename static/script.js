@@ -328,10 +328,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Client-side round trip minus server processing time estimate
                 const networkLatency = Math.max(0, Math.round(totalLatency - serverTime));
 
-                const latencyText = `${Math.round(totalLatency)}ms`;
+                const latencyText = `${Math.round(serverTime)}ms`;
                 if (statusEl) {
                     statusEl.classList.remove('hidden');
                     statusEl.querySelector('.status-text').textContent = latencyText;
+                    statusEl.title = `Server: ${Math.round(serverTime)}ms, Network: ${networkLatency}ms, Total: ${Math.round(totalLatency)}ms`;
                 }
                 resultContainer.classList.add('visible');
 

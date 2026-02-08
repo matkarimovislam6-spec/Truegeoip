@@ -13,3 +13,4 @@ maxminddb
 slowapi
 gunicorn
 aiosmtplib
+psycopg2-binary

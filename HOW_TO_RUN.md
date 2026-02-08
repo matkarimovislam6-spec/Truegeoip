@@ -41,6 +41,18 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret-here
 EMAIL_PROVIDER=auto
 RESEND_API_KEY=your-resend-api-key-here
 RESEND_FROM=onboarding@resend.dev
+
+# LOOKUP PERFORMANCE MODE
+# Use db mode for low-RAM machines (recommended for <= 6 GB RAM)
+IP_DB_FILE=databasefull.sqlite
+LOOKUP_MODE=db
+LOOKUP_WORKERS=4
+AUTO_CREATE_DB_INDEXES=0
+```
+
+If you use `LOOKUP_MODE=db`, run this once to build DB indexes:
+```bash
+python3 scripts/build_lookup_indexes.py --db databasefull.sqlite
 ```
 
 > **Note**: If you skip this, "Sign in with Google" will fail, but you can still use email/password sign up.
@@ -62,7 +74,43 @@ python main.py
 
 ---
 
-## 4. Troubleshooting
+## 4. Migrate SQLite -> PostgreSQL
+
+This project includes a full migration pipeline for:
+- `users.db` -> `app` schema
+- `databasefull.sqlite` (or `ripe.sqlite`) -> `analytics` + `lookup` schemas
+
+### 4.1 Set PostgreSQL DSN
+
+Add one of these to `.env`:
+
+```ini
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+# or
+POSTGRES_DSN=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+```
+
+### 4.2 Run migration
+
+```bash
+python3 scripts/postgres/migrate_sqlite_to_postgres.py --truncate-first
+```
+
+Optional tuning:
+
+```bash
+python3 scripts/postgres/migrate_sqlite_to_postgres.py --truncate-first --chunk-size 30000 --analyze
+```
+
+### 4.3 Verify migrated row counts
+
+```bash
+python3 scripts/postgres/verify_postgres_migration.py --fail-on-mismatch
+```
+
+---
+
+## 5. Troubleshooting
 
 ### Blank Page / Connection Error at `localhost`
 Use `127.0.0.1` instead of `localhost`.
@@ -87,7 +135,7 @@ Ensure your Google Cloud Console redirect URI matches exactly:
 
 ---
 
-## 5. Features
+## 6. Features
 -   **Public IP Lookup**: `http://127.0.0.1:8000/`
 -   **User Accounts**: Sign Up/In with Email or Google.
 -   **Contact Page**: `http://127.0.0.1:8000/contact`

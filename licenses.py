@@ -1,33 +1,41 @@
-
-import sqlite3
+import psycopg2
+import psycopg2.pool
+from psycopg2.extras import RealDictCursor
 import uuid
 import datetime
 import secrets
+import os
 
-# Use the same DB as users for foreign key integrity
-DB_FILE = "users.db"
+# PostgreSQL Configuration
+PG_HOST = os.getenv("PG_HOST", "/tmp")
+PG_API_DB = os.getenv("PG_DATABASE", "truegeoip")
+PG_USER = os.getenv("PG_USER", "postgres")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "Islam1717@")
+
+# We'll use a pool if initialized by main.py
+pg_pool = None
+
+def get_db_connection():
+    if pg_pool:
+        return pg_pool.getconn()
+    return psycopg2.connect(
+        host=PG_HOST,
+        database=PG_API_DB,
+        user=PG_USER,
+        password=PG_PASSWORD,
+        options="-c search_path=app,analytics,lookup,public"
+    )
+
+def release_db_connection(conn):
+    if pg_pool:
+        pg_pool.putconn(conn)
+    else:
+        conn.close()
 
 def init_licenses_db():
-    """Initialize the licenses table in users.db"""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS licenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            license_key TEXT UNIQUE NOT NULL,
-            plan_type TEXT DEFAULT 'annual_db',
-            status TEXT DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            expires_at TIMESTAMP,
-            last_downloaded_at TIMESTAMP,
-            FOREIGN KEY(user_id) REFERENCES users(id)
-        )
-    ''')
-    conn.commit()
-    conn.close()
-    print("Licenses table initialized.")
+    """Initialize the licenses table (managed by migration/auth.py in reality)."""
+    # Just a placeholder or basic check
+    pass
 
 def generate_license_key():
     """Generate a random license key (e.g. IPINT-XXXX-XXXX-XXXX)"""
@@ -37,81 +45,89 @@ def generate_license_key():
 
 def create_license(user_id, plan_type='annual_db', duration_days=365):
     """Create a new license for a user"""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    
-    key = generate_license_key()
-    expires_at = datetime.datetime.now() + datetime.timedelta(days=duration_days)
-    
+    conn = get_db_connection()
     try:
+        cursor = conn.cursor()
+        
+        key = generate_license_key()
+        expires_at = datetime.datetime.now() + datetime.timedelta(days=duration_days)
+        
         cursor.execute(
-            "INSERT INTO licenses (user_id, license_key, plan_type, expires_at) VALUES (?, ?, ?, ?)",
+            "INSERT INTO licenses (user_id, license_key, plan_type, expires_at) VALUES (%s, %s, %s, %s)",
             (user_id, key, plan_type, expires_at)
         )
         conn.commit()
+        cursor.close()
         return key
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"Error creating license: {e}")
         return None
     finally:
-        conn.close()
+        release_db_connection(conn)
 
 def get_user_licenses(user_id):
     """Get all licenses for a user"""
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        "SELECT * FROM licenses WHERE user_id = ? ORDER BY created_at DESC",
-        (user_id,)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT * FROM licenses WHERE user_id = %s ORDER BY created_at DESC",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in rows]
+    finally:
+        release_db_connection(conn)
 
 def validate_license(key):
     """
     Validate a license key for download.
     Returns (is_valid, message, license_obj)
     """
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM licenses WHERE license_key = ?", (key,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if not row:
-        return False, "Invalid license key", None
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-    license_data = dict(row)
-    
-    # Check status
-    if license_data['status'] != 'active':
-        return False, f"License is {license_data['status']}", None
+        cursor.execute("SELECT * FROM licenses WHERE license_key = %s", (key,))
+        row = cursor.fetchone()
+        cursor.close()
         
-    # Check expiry
-    # Allow for string timestamp parsing if sqlite returns string
-    expires_at_str = license_data['expires_at']
-    if expires_at_str:
-        expires_at = datetime.datetime.fromisoformat(expires_at_str) if isinstance(expires_at_str, str) else expires_at_str
-        if datetime.datetime.now() > expires_at:
-             return False, "License has expired", None
-
-    return True, "Valid", license_data
+        if not row:
+            return False, "Invalid license key", None
+            
+        license_data = dict(row)
+        
+        # Check status
+        if license_data['status'] != 'active':
+            return False, f"License is {license_data['status']}", None
+            
+        # Check expiry
+        expires_at = license_data['expires_at']
+        if expires_at:
+            if isinstance(expires_at, str):
+                expires_at = datetime.datetime.fromisoformat(expires_at)
+            
+            if datetime.datetime.now() > expires_at:
+                 return False, "License has expired", None
+    
+        return True, "Valid", license_data
+    finally:
+        release_db_connection(conn)
 
 def record_download(key):
     """Update last_downloaded_at timestamp"""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE licenses SET last_downloaded_at = CURRENT_TIMESTAMP WHERE license_key = ?",
-        (key,)
-    )
-    conn.commit()
-    conn.close()
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE licenses SET last_downloaded_at = CURRENT_TIMESTAMP WHERE license_key = %s",
+            (key,)
+        )
+        conn.commit()
+        cursor.close()
+    finally:
+        release_db_connection(conn)
 
 # Initialize on import
 init_licenses_db()
