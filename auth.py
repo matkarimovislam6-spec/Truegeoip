@@ -331,9 +331,11 @@ def create_user(email: str, password: str, name: str = None) -> Optional[Dict[st
         verification_code = generate_code()
         api_key = str(uuid.uuid4())
         
+        # NOTE: Postgres uses boolean `is_verified`; keep it at default false.
         cursor.execute(
-            "INSERT INTO users (email, password_hash, name, verification_code, is_verified, api_key) VALUES (%s, %s, %s, %s, 0, %s) RETURNING id",
-            (email.lower(), password_hash, name or email.split('@')[0], verification_code, api_key)
+            "INSERT INTO users (email, password_hash, name, verification_code, api_key) "
+            "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (email.lower(), password_hash, name or email.split("@")[0], verification_code, api_key),
         )
         user_id = cursor.fetchone()['id']
         conn.commit()
@@ -369,7 +371,10 @@ def verify_user_email(email: str, code: str) -> bool:
         user = cursor.fetchone()
         
         if user:
-            cursor.execute("UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = %s", (user['id'],))
+            cursor.execute(
+                "UPDATE users SET is_verified = TRUE, verification_code = NULL WHERE id = %s",
+                (user["id"],),
+            )
             conn.commit()
             cursor.close()
             return True
@@ -406,7 +411,8 @@ def create_or_get_google_user(email: str, google_id: str, name: str) -> Dict[str
         # Create new user
         api_key = str(uuid.uuid4())
         cursor.execute(
-            "INSERT INTO users (email, google_id, name, api_key, is_verified) VALUES (%s, %s, %s, %s, 1) RETURNING id",
+            "INSERT INTO users (email, google_id, name, api_key, is_verified) "
+            "VALUES (%s, %s, %s, %s, TRUE) RETURNING id",
             (email.lower(), google_id, name, api_key)
         )
         user_id = cursor.fetchone()['id']
