@@ -136,7 +136,15 @@ You are missing a dependency. Run the install command in Step 1 again.
 
 ### Google Sign-In Error: `OAuthError: mismatch_redirect_uri`
 Ensure your Google Cloud Console redirect URI matches exactly:
-`http://localhost:8000/auth/google/callback`
+Local:
+`http://localhost:8000/auth/google/callback` (or `http://127.0.0.1:8000/auth/google/callback`)
+
+Production:
+`https://truegeoip.com/auth/google/callback` (and `https://www.truegeoip.com/auth/google/callback` if you use `www`)
+
+### Google Sign-In Error: `Missing required parameter: client_id`
+Your server is redirecting to Google with an empty `client_id`, which means your `.env` is missing:
+`GOOGLE_CLIENT_ID=...` and/or `GOOGLE_CLIENT_SECRET=...`
 
 ---
 

@@ -28,6 +28,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # PostgreSQL support
 import psycopg2
@@ -71,6 +72,13 @@ def env_int(name: str, default: int) -> int:
         return int(os.getenv(name, str(default)))
     except Exception:
         return default
+
+
+def google_oauth_configured() -> bool:
+    """Return True only when Google OAuth is actually configured."""
+    client_id = (os.getenv("GOOGLE_CLIENT_ID", "") or "").strip()
+    client_secret = (os.getenv("GOOGLE_CLIENT_SECRET", "") or "").strip()
+    return bool(client_id and client_secret)
 
 
 LOOKUP_MODE = (os.getenv("LOOKUP_MODE", "db") or "db").strip().lower()
@@ -1106,6 +1114,9 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Trust Nginx proxy headers so url_for() generates correct https:// redirect URIs in prod.
+app.add_middleware(ProxyHeadersMiddleware)
+
 # Security: Trusted Host Middleware
 # ALLOWED_HOSTS = ["example.com", "*.example.com", "localhost", "127.0.0.1"]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"]) # TODO: User should restrict this in prod
@@ -1613,14 +1624,16 @@ async def delete_profile(
 
 
 @app.get("/signup", response_class=HTMLResponse)
-async def signup_page(request: Request, next: str = "/"):
+async def signup_page(request: Request, next: str = "/", error: str = ""):
     next_path = safe_internal_path(next, "/")
     return templates.TemplateResponse(
         "signup.html",
         {
             "request": request,
+            "error": error,
             "next": next_path,
             "next_encoded": quote(next_path, safe=""),
+            "google_oauth_configured": google_oauth_configured(),
             "name_value": "",
             "email_value": ""
         }
@@ -1744,7 +1757,7 @@ async def verify_action(
 
 
 @app.get("/signin", response_class=HTMLResponse)
-async def signin_page(request: Request, next: str = "/"):
+async def signin_page(request: Request, next: str = "/", error: str = ""):
     next_path = safe_internal_path(next, "/")
     if request.session.get("user"):
         return RedirectResponse(url=next_path, status_code=status.HTTP_303_SEE_OTHER)
@@ -1755,6 +1768,8 @@ async def signin_page(request: Request, next: str = "/"):
             "request": request,
             "next": next_path,
             "next_encoded": quote(next_path, safe="")
+            , "error": error
+            , "google_oauth_configured": google_oauth_configured()
         }
     )
 
@@ -1800,15 +1815,25 @@ async def signout(request: Request):
 
 
 @app.get("/auth/google")
-async def google_login(request: Request):
-    # Dynamic redirect URI based on request (handles localhost/127.0.0.1 automatic switching)
-    redirect_uri = request.url_for('google_callback')
-    print(f"DEBUG: sending redirect_uri={redirect_uri}")
+async def google_login(request: Request, next: str = "/"):
+    next_path = safe_internal_path(next, "/")
+
+    if not google_oauth_configured():
+        # Avoid sending users to Google with an empty client_id.
+        params = {"next": next_path, "error": "Google Sign-In is not configured yet."}
+        return RedirectResponse(url=f"/signin?{urlencode(params)}", status_code=status.HTTP_303_SEE_OTHER)
+
+    # Persist next path through the OAuth redirect round-trip.
+    request.session["oauth_next"] = next_path
+
+    # Dynamic redirect URI based on request (handles localhost/127.0.0.1 + prod domain).
+    redirect_uri = str(request.url_for("google_callback"))
     return await auth.oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @app.get("/auth/google/callback")
 async def google_callback(request: Request):
+    next_path = safe_internal_path(request.session.get("oauth_next", "/dashboard"), "/dashboard")
     try:
         token = await auth.oauth.google.authorize_access_token(request)
         user_info = token.get('userinfo')
@@ -1824,11 +1849,13 @@ async def google_callback(request: Request):
         )
         
         request.session["user"] = {"id": user["id"], "name": user["name"], "email": user["email"]}
-        # Redirect to React Frontend (Dev)
-        return RedirectResponse(url="http://localhost:5173/", status_code=status.HTTP_303_SEE_OTHER)
+        request.session.pop("oauth_next", None)
+        return RedirectResponse(url=next_path, status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
         print(f"OAuth Error: {e}")
-        return RedirectResponse(url="/signin?error=OAuth+Failed", status_code=status.HTTP_303_SEE_OTHER)
+        request.session.pop("oauth_next", None)
+        params = {"next": next_path, "error": "OAuth Failed. Please try again."}
+        return RedirectResponse(url=f"/signin?{urlencode(params)}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 def save_elevation_to_db(lat: float, lon: float, elev: float):

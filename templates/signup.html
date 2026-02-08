@@ -97,18 +97,20 @@
                     style="color: var(--accent-primary); text-decoration: none; font-weight: 500;">Sign In</a>
             </div>
 
+            {% if google_oauth_configured %}
             <div style="position: relative; margin: 2rem 0; text-align: center;">
                 <hr style="border: 0; border-top: 1px solid var(--card-border);">
                 <span
                     style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--palette-3); padding: 0 0.75rem; color: var(--text-secondary); font-size: 0.85em;">OR</span>
             </div>
 
-            <a href="/auth/google"
+            <a href="/auth/google?next={{ next_encoded or '%2F' }}"
                 style="display: flex; align-items: center; justify-content: center; gap: 0.75rem; width: 100%; padding: 0.875rem; background: var(--palette-3); color: var(--text-primary); border: 1px solid var(--card-border); border-radius: 8px; text-decoration: none; font-weight: 500; transition: none;">
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google"
                     style="width: 20px; height: 20px;">
                 Sign up with Google
             </a>
+            {% endif %}
         </div>
     </div>
     <div style="text-align: center; margin-top: 2rem; color: var(--text-tertiary); font-size: 0.8rem; opacity: 0.7;">

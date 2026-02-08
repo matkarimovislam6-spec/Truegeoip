@@ -55,6 +55,14 @@ cp .env.example .env  # Or create new
 nano .env
 ```
 
+If you want Google Sign-In:
+```ini
+GOOGLE_CLIENT_ID=...         # ends with .apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=...
+```
+In Google Cloud Console, set Authorized redirect URIs to:
+`https://your-domain.com/auth/google/callback` (and `https://www.your-domain.com/auth/google/callback` if used).
+
 ## 4. Systemd Service (Keep App Running)
 
 Create a service file to manage the application process.
