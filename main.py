@@ -1133,12 +1133,12 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> FileResponse:
     # Explicit root favicon route helps browsers that ignore page-level icon tags.
-    return FileResponse("static/img/logo.png", media_type="image/png")
+    return FileResponse("static/img/favicon.png", media_type="image/png")
 
 
 @app.get("/apple-touch-icon.png", include_in_schema=False)
 async def apple_touch_icon() -> FileResponse:
-    return FileResponse("static/img/logo.png", media_type="image/png")
+    return FileResponse("static/img/favicon.png", media_type="image/png")
 
 DEFAULT_CHECKOUT_PLAN = "start"
 CHECKOUT_PLAN_CATALOG = {
