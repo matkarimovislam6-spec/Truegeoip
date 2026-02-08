@@ -1662,9 +1662,10 @@ async def signup_action(
                 "error": message,
                 "next": next_path,
                 "next_encoded": quote(next_path, safe=""),
+                "google_oauth_configured": google_oauth_configured(),
                 "name_value": name,
-                "email_value": email
-            }
+                "email_value": email,
+            },
         )
 
     if password != confirm_password:
@@ -1767,10 +1768,10 @@ async def signin_page(request: Request, next: str = "/", error: str = ""):
         {
             "request": request,
             "next": next_path,
-            "next_encoded": quote(next_path, safe="")
-            , "error": error
-            , "google_oauth_configured": google_oauth_configured()
-        }
+            "next_encoded": quote(next_path, safe=""),
+            "error": error,
+            "google_oauth_configured": google_oauth_configured(),
+        },
     )
 
 
@@ -1798,8 +1799,9 @@ async def signin_action(
                 "request": request,
                 "next": next_path,
                 "next_encoded": quote(next_path, safe=""),
-                "error": "Invalid credentials."
-            }
+                "error": "Invalid credentials.",
+                "google_oauth_configured": google_oauth_configured(),
+            },
         )
     
     request.session["user"] = user
