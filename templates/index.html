@@ -4,10 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TrueGeoIP | AntiGravity</title>
+    <title>TrueGeoIP</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/static/style.css?v=20260208-flowfx">
+    <link rel="stylesheet" href="/static/style.css?v=20260208-featuretimeline">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
         integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -46,13 +47,13 @@
                         </div>
                     </div>
                     <div class="dropdown-section">
-                        <a href="#" class="dropdown-item">
+                        <a href="/profile" class="dropdown-item">
                             <i class="fas fa-user"></i> Profile
                         </a>
                         <a href="#" class="dropdown-item">
                             <i class="fas fa-key"></i> API Keys
                         </a>
-                        <a href="/pricing" class="dropdown-item">
+                        <a href="/billing" class="dropdown-item">
                             <i class="fas fa-credit-card"></i> Billing
                         </a>
                         <a href="#" class="dropdown-item">
@@ -217,28 +218,35 @@
     <section id="features" class="features">
         <div class="container">
             <h2 class="section-title">Why choose <span class="gradient-text">TrueGeoIP?</span></h2>
-            <div class="feature-grid">
-                <!-- Security First -->
-                <div class="feature-card">
-                    <div class="icon">🛡️</div>
-                    <h3>Stop Fraud at the Source</h3>
-                    <p>Instantly route or block traffic based on <strong>ASN intelligence</strong>. Identify VPNs,
-                        datacenters, and high-risk IPs before they abuse your platform.</p>
-                </div>
-                <!-- Marketing Second -->
-                <div class="feature-card">
-                    <div class="icon">🎯</div>
-                    <h3>Convert via Localization</h3>
-                    <p>Serve the right content to the right audience. Use <strong>estimated regional</strong> data to
-                        pre-fill currencies, languages, and timezones for a friction-free experience.</p>
-                </div>
-                <!-- Analytics Third -->
-                <div class="feature-card">
-                    <div class="icon">📊</div>
-                    <h3>Uncover Hidden Trends</h3>
-                    <p>Go beyond simple hit counters. Analyze traffic quality, detect botnets by ASN, and visualize
-                        global user distribution with our <strong>embedded, real-time dashboards</strong>.</p>
-                </div>
+            <div class="feature-timeline">
+                <article class="feature-step" style="--step-index: 0; --feature-accent: #ff6b35;">
+                    <span class="feature-node" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></span>
+                    <div class="feature-card">
+                        <div class="icon"><i class="fa-solid fa-user-shield"></i></div>
+                        <h3>Stop Fraud at the Source</h3>
+                        <p>Instantly route or block traffic based on <strong>ASN intelligence</strong>. Identify VPNs,
+                            datacenters, and high-risk IPs before they abuse your platform.</p>
+                    </div>
+                </article>
+                <article class="feature-step" style="--step-index: 1; --feature-accent: #0f9d95;">
+                    <span class="feature-node" aria-hidden="true"><i class="fa-solid fa-earth-americas"></i></span>
+                    <div class="feature-card">
+                        <div class="icon"><i class="fa-solid fa-earth-americas"></i></div>
+                        <h3>Convert via Localization</h3>
+                        <p>Serve the right content to the right audience. Use <strong>ultra-high accurate regional</strong> data
+                            to pre-fill currencies, languages, and timezones for a friction-free experience.</p>
+                    </div>
+                </article>
+                <article class="feature-step" style="--step-index: 2; --feature-accent: #2563eb;">
+                    <span class="feature-node" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+                    <div class="feature-card">
+                        <div class="icon"><i class="fa-solid fa-chart-line"></i></div>
+                        <h3>Uncover Hidden Trends</h3>
+                        <p>Go beyond simple hit counters. Analyze traffic quality, detect botnets by ASN, and
+                            visualize global user distribution with our <strong>embedded, real-time dashboards</strong>.
+                        </p>
+                    </div>
+                </article>
             </div>
         </div>
     </section>
@@ -257,7 +265,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="/static/script.js?v=20260207-threat"></script>
+    <script src="/static/script.js?v=20260208-featuretimeline"></script>
 </body>
 
 </html>

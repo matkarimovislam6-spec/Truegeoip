@@ -16,6 +16,7 @@ from cachetools import TTLCache
 from typing import Optional, Dict, Any
 import threading
 import bisect
+import re
 from urllib.parse import quote, urlencode
 import httpx  # For elevation API
 import auth  # New auth module
@@ -920,6 +921,24 @@ async def pricing(request: Request):
     return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
 
 
+@app.get("/billing")
+async def billing_entry(request: Request, plan: str = DEFAULT_CHECKOUT_PLAN):
+    """
+    Billing entry point.
+    - Logged-in users go to payment/billing flow.
+    - Logged-out users go to pricing.
+    """
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/pricing", status_code=status.HTTP_303_SEE_OTHER)
+
+    plan_key = get_checkout_plan_key(plan)
+    return RedirectResponse(
+        url=f"/payment?{urlencode({'plan': plan_key})}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
 @app.get("/start-checkout")
 async def start_checkout(request: Request, plan: str = DEFAULT_CHECKOUT_PLAN):
     """Route plan CTA clicks through auth, then redirect to payment."""
@@ -985,10 +1004,205 @@ def is_json_request(request: Request):
     accept = request.headers.get("accept", "")
     return "application/json" in accept
 
+
+PROFILE_SUCCESS_MESSAGES = {
+    "profile_updated": "Profile updated successfully.",
+}
+
+PROFILE_ERROR_MESSAGES = {
+    "invalid_name": "Please enter a valid name (2-80 characters).",
+    "update_failed": "Unable to update your profile right now.",
+    "delete_confirm": 'Type "DELETE" to confirm account deletion.',
+    "email_mismatch": "Confirmation email does not match your account email.",
+    "password_required": "Please enter your current password to continue.",
+    "invalid_password": "Current password is incorrect.",
+    "delete_failed": "Unable to delete your account right now. Please try again.",
+}
+
+DELETE_FORM_ERROR_CODES = {
+    "delete_confirm",
+    "email_mismatch",
+    "password_required",
+    "invalid_password",
+    "delete_failed",
+}
+
+PASSWORD_SYMBOL_PATTERN = re.compile(r"[^A-Za-z0-9\s]")
+
+
+def validate_signup_password(password: str) -> Optional[str]:
+    """Enforce signup password rules."""
+    if len(password or "") < 6:
+        return "Password must be at least 6 characters."
+    if not PASSWORD_SYMBOL_PATTERN.search(password or ""):
+        return "Password must include at least one symbol."
+    return None
+
+
+def cleanup_user_analytics(project_ids):
+    """Delete analytics rows linked to user projects."""
+    if not project_ids:
+        return
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    placeholders = ",".join("?" for _ in project_ids)
+
+    for table in ("analytics_events", "analytics_aggregates_hourly", "analytics_aggregates_daily"):
+        try:
+            cursor.execute(f"DELETE FROM {table} WHERE project_id IN ({placeholders})", project_ids)
+        except sqlite3.Error as e:
+            print(f"[WARN] Failed to delete analytics rows from {table}: {e}")
+
+    conn.commit()
+    conn.close()
+
+
 @app.get("/api/user")
 async def get_current_user(request: Request):
     """Return current logged in user or null."""
     return request.session.get("user") or None
+
+
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request, success: str = "", error: str = ""):
+    user_session = request.session.get("user")
+    if not user_session:
+        return RedirectResponse(url=signin_with_next_url("/profile"), status_code=status.HTTP_303_SEE_OTHER)
+
+    user_data = auth.get_user_by_id(user_session["id"])
+    if not user_data:
+        request.session.pop("user", None)
+        return RedirectResponse(url=signin_with_next_url("/profile"), status_code=status.HTTP_303_SEE_OTHER)
+
+    session_user = {
+        "id": user_data["id"],
+        "name": user_data.get("name") or user_data["email"].split("@")[0],
+        "email": user_data["email"]
+    }
+    request.session["user"] = session_user
+
+    conn = auth.get_db()
+    cursor = conn.cursor()
+    project_count = cursor.execute(
+        "SELECT COUNT(*) AS c FROM projects WHERE user_id = ?",
+        (user_data["id"],)
+    ).fetchone()["c"]
+    license_count = cursor.execute(
+        "SELECT COUNT(*) AS c FROM licenses WHERE user_id = ?",
+        (user_data["id"],)
+    ).fetchone()["c"]
+    conn.close()
+
+    created_at_display = str(user_data.get("created_at") or "N/A").replace("T", " ")
+    success_message = PROFILE_SUCCESS_MESSAGES.get(success, "")
+    error_message = PROFILE_ERROR_MESSAGES.get(error, "")
+    show_delete_form = error in DELETE_FORM_ERROR_CODES
+
+    return templates.TemplateResponse(
+        "profile.html",
+        {
+            "request": request,
+            "user": session_user,
+            "user_data": user_data,
+            "has_password": bool(user_data.get("password_hash")),
+            "project_count": project_count,
+            "license_count": license_count,
+            "created_at_display": created_at_display,
+            "success_message": success_message,
+            "error_message": error_message,
+            "show_delete_form": show_delete_form
+        }
+    )
+
+
+@app.post("/profile/update")
+async def profile_update(request: Request, name: str = Form(...)):
+    user_session = request.session.get("user")
+    if not user_session:
+        if is_json_request(request):
+            return Response(content='{"error":"Authentication required."}', media_type="application/json", status_code=401)
+        return RedirectResponse(url=signin_with_next_url("/profile"), status_code=status.HTTP_303_SEE_OTHER)
+
+    clean_name = (name or "").strip()
+    if len(clean_name) < 2 or len(clean_name) > 80:
+        if is_json_request(request):
+            return Response(content='{"error":"Invalid name."}', media_type="application/json", status_code=400)
+        return RedirectResponse(url="/profile?error=invalid_name", status_code=status.HTTP_303_SEE_OTHER)
+
+    updated = auth.update_user_name(user_session["id"], clean_name)
+    if not updated:
+        if is_json_request(request):
+            return Response(content='{"error":"Update failed."}', media_type="application/json", status_code=500)
+        return RedirectResponse(url="/profile?error=update_failed", status_code=status.HTTP_303_SEE_OTHER)
+
+    request.session["user"] = {
+        "id": user_session["id"],
+        "name": clean_name,
+        "email": user_session["email"]
+    }
+
+    if is_json_request(request):
+        return {"success": True, "name": clean_name}
+    return RedirectResponse(url="/profile?success=profile_updated", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/profile/delete")
+async def delete_profile(
+    request: Request,
+    confirm_text: str = Form(""),
+    confirm_email: str = Form(""),
+    current_password: str = Form("")
+):
+    user_session = request.session.get("user")
+    if not user_session:
+        if is_json_request(request):
+            return Response(content='{"error":"Authentication required."}', media_type="application/json", status_code=401)
+        return RedirectResponse(url=signin_with_next_url("/profile"), status_code=status.HTTP_303_SEE_OTHER)
+
+    user_data = auth.get_user_by_id(user_session["id"])
+    if not user_data:
+        request.session.pop("user", None)
+        if is_json_request(request):
+            return Response(content='{"error":"User not found."}', media_type="application/json", status_code=404)
+        return RedirectResponse(url=signin_with_next_url("/profile"), status_code=status.HTTP_303_SEE_OTHER)
+
+    if confirm_text.strip().upper() != "DELETE":
+        if is_json_request(request):
+            return Response(content='{"error":"Invalid confirmation text."}', media_type="application/json", status_code=400)
+        return RedirectResponse(url="/profile?error=delete_confirm", status_code=status.HTTP_303_SEE_OTHER)
+
+    if confirm_email.strip().lower() != user_data["email"].lower():
+        if is_json_request(request):
+            return Response(content='{"error":"Email mismatch."}', media_type="application/json", status_code=400)
+        return RedirectResponse(url="/profile?error=email_mismatch", status_code=status.HTTP_303_SEE_OTHER)
+
+    if user_data.get("password_hash"):
+        if not current_password:
+            if is_json_request(request):
+                return Response(content='{"error":"Current password is required."}', media_type="application/json", status_code=400)
+            return RedirectResponse(url="/profile?error=password_required", status_code=status.HTTP_303_SEE_OTHER)
+        if not auth.verify_password(current_password, user_data["password_hash"]):
+            if is_json_request(request):
+                return Response(content='{"error":"Invalid password."}', media_type="application/json", status_code=400)
+            return RedirectResponse(url="/profile?error=invalid_password", status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        delete_result = auth.delete_user_account(user_data["id"])
+        if not delete_result.get("deleted"):
+            raise RuntimeError("User row was not deleted.")
+        cleanup_user_analytics(delete_result.get("project_ids", []))
+    except Exception as e:
+        print(f"[ERR] Failed to delete user {user_data['id']}: {e}")
+        if is_json_request(request):
+            return Response(content='{"error":"Delete failed."}', media_type="application/json", status_code=500)
+        return RedirectResponse(url="/profile?error=delete_failed", status_code=status.HTTP_303_SEE_OTHER)
+
+    request.session.pop("user", None)
+
+    if is_json_request(request):
+        return {"success": True}
+    return RedirectResponse(url="/?account_deleted=1", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/signup", response_class=HTMLResponse)
@@ -999,7 +1213,9 @@ async def signup_page(request: Request, next: str = "/"):
         {
             "request": request,
             "next": next_path,
-            "next_encoded": quote(next_path, safe="")
+            "next_encoded": quote(next_path, safe=""),
+            "name_value": "",
+            "email_value": ""
         }
     )
 
@@ -1011,9 +1227,33 @@ async def signup_action(
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
+    confirm_password: str = Form(...),
     next: str = Form("/")
 ):
     next_path = safe_internal_path(next, "/")
+
+    def render_signup_error(message: str):
+        if is_json_request(request):
+            return Response(content=f'{{"error": "{message}"}}', media_type="application/json", status_code=400)
+        return templates.TemplateResponse(
+            "signup.html",
+            {
+                "request": request,
+                "error": message,
+                "next": next_path,
+                "next_encoded": quote(next_path, safe=""),
+                "name_value": name,
+                "email_value": email
+            }
+        )
+
+    if password != confirm_password:
+        return render_signup_error("Passwords do not match.")
+
+    password_error = validate_signup_password(password)
+    if password_error:
+        return render_signup_error(password_error)
+
     user = auth.create_user(email, password, name)
     
     if is_json_request(request):
@@ -1021,26 +1261,24 @@ async def signup_action(
             return Response(content='{"error": "Email already registered."}', media_type="application/json", status_code=400)
         
         # Send verification email
-        await auth.send_verification_email(email, user['verification_code'])
+        sent = await auth.send_verification_email(email, user['verification_code'])
+        if not sent:
+            return Response(
+                content='{"error":"Unable to send verification email. Configure email provider."}',
+                media_type="application/json",
+                status_code=500
+            )
         return {"success": True, "message": "Verification code sent.", "email": email, "next": next_path}
 
     if not user:
-        return templates.TemplateResponse(
-            "signup.html",
-            {
-                "request": request,
-                "error": "Email already registered.",
-                "next": next_path,
-                "next_encoded": quote(next_path, safe="")
-            }
-        )
+        return render_signup_error("Email already registered.")
     
     # Send verification email
     sent = await auth.send_verification_email(email, user['verification_code'])
     
     redirect_params = {"email": email, "next": next_path}
     if not sent:
-        # Debug fallback: Pass code in URL if SMTP fails
+        # Debug fallback: Pass code in URL if email delivery fails
         redirect_params["debug_code"] = user["verification_code"]
     redirect_url = f"/verify?{urlencode(redirect_params)}"
     

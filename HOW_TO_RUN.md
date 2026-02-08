@@ -36,9 +36,16 @@ SECRET_KEY=... (keep the generated one)
 # Create these at: https://console.cloud.google.com/apis/credentials
 GOOGLE_CLIENT_ID=your-google-client-id-here
 GOOGLE_CLIENT_SECRET=your-google-client-secret-here
+
+# EMAIL DELIVERY (required for real verification emails)
+EMAIL_PROVIDER=auto
+RESEND_API_KEY=your-resend-api-key-here
+RESEND_FROM=onboarding@resend.dev
 ```
 
 > **Note**: If you skip this, "Sign in with Google" will fail, but you can still use email/password sign up.
+>  
+> **Email note**: If `RESEND_API_KEY` (or SMTP credentials) is missing, verification falls back to debug mode and no real email is sent.
 
 ---
 

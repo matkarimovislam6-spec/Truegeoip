@@ -122,6 +122,35 @@ const Home = () => {
         };
     }, []);
 
+    useEffect(() => {
+        const timelines = document.querySelectorAll('.feature-timeline');
+        if (!timelines.length) return undefined;
+
+        const featureSteps = document.querySelectorAll('.feature-step');
+        if (!featureSteps.length) return undefined;
+
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            featureSteps.forEach((step) => step.classList.add('is-visible'));
+            return undefined;
+        }
+
+        timelines.forEach((timeline) => timeline.classList.add('is-animated'));
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                });
+            },
+            { threshold: 0.3, rootMargin: '0px 0px -8% 0px' }
+        );
+
+        featureSteps.forEach((step) => observer.observe(step));
+        return () => observer.disconnect();
+    }, []);
+
     const performCheck = async (searchIp) => {
         if (!searchIp) return;
 
@@ -382,23 +411,32 @@ const Home = () => {
             {/* Features Section */}
             <section id="features" className="features">
                 <div className="container">
-                    <h2 className="section-title">Why choose <span className="gradient-text">IP Intelligence?</span></h2>
-                    <div className="feature-grid">
-                        <div className="feature-card">
-                            <div className="icon">🚀</div>
-                            <h3>Ultra-Low Latency</h3>
-                            <p>Optimized for speed with local MMDB lookups and in-memory caching. Average response &lt; 10ms.</p>
-                        </div>
-                        <div className="feature-card">
-                            <div className="icon">🎯</div>
-                            <h3>High Accuracy</h3>
-                            <p>Aggregated data from industry-leading trusted sources for precise geolocation and ASN details.</p>
-                        </div>
-                        <div className="feature-card">
-                            <div className="icon">🛡️</div>
-                            <h3>Privacy First</h3>
-                            <p>We do not log your queries. Your data usage remains private and secure.</p>
-                        </div>
+                    <h2 className="section-title">Why choose <span className="gradient-text">TrueGeoIP?</span></h2>
+                    <div className="feature-timeline">
+                        <article className="feature-step" style={{ '--step-index': 0, '--feature-accent': '#ff6b35' }}>
+                            <span className="feature-node" aria-hidden="true"><i className="fa-solid fa-user-shield"></i></span>
+                            <div className="feature-card">
+                                <div className="icon"><i className="fa-solid fa-user-shield"></i></div>
+                                <h3>Stop Fraud at the Source</h3>
+                                <p>Instantly route or block traffic based on <strong>ASN intelligence</strong>. Identify VPNs, datacenters, and high-risk IPs before they abuse your platform.</p>
+                            </div>
+                        </article>
+                        <article className="feature-step" style={{ '--step-index': 1, '--feature-accent': '#0f9d95' }}>
+                            <span className="feature-node" aria-hidden="true"><i className="fa-solid fa-earth-americas"></i></span>
+                            <div className="feature-card">
+                                <div className="icon"><i className="fa-solid fa-earth-americas"></i></div>
+                                <h3>Convert via Localization</h3>
+                                <p>Serve the right content to the right audience. Use <strong>ultra-high accurate regional</strong> data to pre-fill currencies, languages, and timezones for a friction-free experience.</p>
+                            </div>
+                        </article>
+                        <article className="feature-step" style={{ '--step-index': 2, '--feature-accent': '#2563eb' }}>
+                            <span className="feature-node" aria-hidden="true"><i className="fa-solid fa-chart-line"></i></span>
+                            <div className="feature-card">
+                                <div className="icon"><i className="fa-solid fa-chart-line"></i></div>
+                                <h3>Uncover Hidden Trends</h3>
+                                <p>Go beyond simple hit counters. Analyze traffic quality, detect botnets by ASN, and visualize global user distribution with our <strong>embedded, real-time dashboards</strong>.</p>
+                            </div>
+                        </article>
                     </div>
                 </div>
             </section>

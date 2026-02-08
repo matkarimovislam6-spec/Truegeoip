@@ -39,27 +39,14 @@ oauth.register(
     }
 )
 
-# SMTP Configuration
+# Email delivery configuration
 import aiosmtplib
+import httpx
 from email.message import EmailMessage
 
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 
-async def send_verification_email(to_email: str, code: str):
-    """Send a verification email with the code."""
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print("SMTP not configured. Skipping email.")
-        return False
-        
-    message = EmailMessage()
-    message["From"] = SMTP_FROM
-    message["To"] = to_email
-    message["Subject"] = "Verify your account - TrueGeoIP"
-    message.set_content(f"""
+def _build_verification_email_text(code: str) -> str:
+    return f"""
 Hello,
 
 Your verification code is: {code}
@@ -68,21 +55,132 @@ Please enter this code to verify your account.
 
 Best regards,
 TrueGeoIP Team
-    """)
-    
-    try:
-        await aiosmtplib.send(
-            message,
-            hostname=SMTP_SERVER,
-            port=SMTP_PORT,
-            start_tls=True,
-            username=SMTP_USER,
-            password=SMTP_PASSWORD
-        )
-        return True
-    except Exception as e:
-        print(f"Failed to send email: {e}")
+    """.strip()
+
+
+def _is_truthy(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def _send_with_resend(to_email: str, code: str) -> bool:
+    resend_api_key = (os.getenv("RESEND_API_KEY", "") or "").strip()
+    resend_from = (os.getenv("RESEND_FROM", "onboarding@resend.dev") or "").strip()
+    resend_api_url = (os.getenv("RESEND_API_URL", "https://api.resend.com/emails") or "").strip()
+    resend_reply_to = (os.getenv("RESEND_REPLY_TO", "") or "").strip()
+
+    placeholder_keys = {"", "your-resend-api-key-here"}
+    if resend_api_key in placeholder_keys:
         return False
+
+    payload = {
+        "from": resend_from,
+        "to": [to_email],
+        "subject": "Verify your account - TrueGeoIP",
+        "text": _build_verification_email_text(code),
+    }
+    if resend_reply_to:
+        payload["reply_to"] = resend_reply_to
+
+    headers = {
+        "Authorization": f"Bearer {resend_api_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(resend_api_url, json=payload, headers=headers)
+        if 200 <= response.status_code < 300:
+            return True
+        print(
+            f"Resend email delivery failed ({response.status_code}) for {to_email}: "
+            f"{response.text[:240]}"
+        )
+    except Exception as e:
+        print(f"Resend email delivery error for {to_email}: {e}")
+
+    return False
+
+
+async def _send_with_smtp(to_email: str, code: str) -> bool:
+    smtp_server = (os.getenv("SMTP_SERVER", "smtp.gmail.com") or "").strip()
+    smtp_port = int((os.getenv("SMTP_PORT", "587") or "587").strip())
+    smtp_user = (os.getenv("SMTP_USER", "") or "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "") or ""
+    smtp_from = (os.getenv("SMTP_FROM", smtp_user) or smtp_user).strip()
+
+    # Auto-pick common TLS mode unless explicitly configured.
+    smtp_use_tls_env = (os.getenv("SMTP_USE_TLS", "") or "").strip()
+    smtp_starttls_env = (os.getenv("SMTP_STARTTLS", "") or "").strip()
+    smtp_use_tls = _is_truthy(smtp_use_tls_env)
+    smtp_starttls = _is_truthy(smtp_starttls_env)
+
+    if not smtp_use_tls_env and not smtp_starttls_env:
+        if smtp_port == 465:
+            smtp_use_tls = True
+            smtp_starttls = False
+        else:
+            smtp_use_tls = False
+            smtp_starttls = True
+
+    placeholder_users = {"", "your-email@gmail.com"}
+    placeholder_passwords = {"", "your-app-password-here"}
+    if smtp_user in placeholder_users or smtp_password.strip() in placeholder_passwords:
+        return False
+
+    message = EmailMessage()
+    message["From"] = smtp_from
+    message["To"] = to_email
+    message["Subject"] = "Verify your account - TrueGeoIP"
+    message.set_content(_build_verification_email_text(code))
+
+    passwords_to_try = [smtp_password]
+    compact_password = smtp_password.replace(" ", "")
+    if compact_password != smtp_password:
+        passwords_to_try.append(compact_password)
+
+    last_error = None
+    for password_value in passwords_to_try:
+        try:
+            await aiosmtplib.send(
+                message,
+                hostname=smtp_server,
+                port=smtp_port,
+                use_tls=smtp_use_tls,
+                start_tls=smtp_starttls,
+                username=smtp_user,
+                password=password_value,
+                timeout=20
+            )
+            return True
+        except Exception as e:
+            last_error = e
+
+    print(f"SMTP email delivery failed for {to_email}: {last_error}")
+    return False
+
+
+async def send_verification_email(to_email: str, code: str):
+    """Send a verification email with the code."""
+    provider = (os.getenv("EMAIL_PROVIDER", "auto") or "auto").strip().lower()
+    if provider not in {"auto", "resend", "smtp"}:
+        provider = "auto"
+
+    # Production-like default: transactional provider first, SMTP fallback.
+    if provider in {"auto", "resend"}:
+        if await _send_with_resend(to_email, code):
+            return True
+        if provider == "resend":
+            return False
+
+    if provider in {"auto", "smtp"}:
+        if await _send_with_smtp(to_email, code):
+            return True
+
+    print(
+        "Email delivery is not configured. Set RESEND_API_KEY (recommended) "
+        "or SMTP_USER/SMTP_PASSWORD in .env and restart the server."
+    )
+    return False
 
 
 import random
@@ -271,6 +369,68 @@ def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     if row:
         return dict(row)
     return None
+
+
+def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
+    """Get a user by ID."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return dict(row)
+    return None
+
+
+def update_user_name(user_id: int, name: str) -> bool:
+    """Update the display name for a user."""
+    clean_name = (name or "").strip()
+    if not clean_name:
+        return False
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET name = ? WHERE id = ?", (clean_name, user_id))
+    conn.commit()
+    updated = cursor.rowcount > 0
+    conn.close()
+    return updated
+
+
+def delete_user_account(user_id: int) -> Dict[str, Any]:
+    """
+    Delete a user and related records in users.db.
+    Returns metadata including affected project IDs for downstream cleanup.
+    """
+    conn = get_db()
+    conn.execute("PRAGMA foreign_keys = ON")
+    cursor = conn.cursor()
+
+    try:
+        project_rows = cursor.execute(
+            "SELECT id FROM projects WHERE user_id = ?",
+            (user_id,)
+        ).fetchall()
+        project_ids = [row["id"] for row in project_rows]
+
+        if project_ids:
+            placeholders = ",".join("?" for _ in project_ids)
+            cursor.execute(f"DELETE FROM api_keys WHERE project_id IN ({placeholders})", project_ids)
+            cursor.execute(f"DELETE FROM projects WHERE id IN ({placeholders})", project_ids)
+
+        cursor.execute("DELETE FROM licenses WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        deleted_user = cursor.rowcount > 0
+
+        conn.commit()
+        return {"deleted": deleted_user, "project_ids": project_ids}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def authenticate_user(email: str, password: str) -> Optional[Dict[str, Any]]:

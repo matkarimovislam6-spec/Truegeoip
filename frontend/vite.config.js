@@ -36,6 +36,21 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/profile': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/billing': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/payment': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
       '/v1': {
         target: 'http://localhost:8000',
         changeOrigin: true,

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pricing | TrueGeoIP</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -226,6 +227,9 @@
             border-radius: 16px;
             padding: 2rem;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
             transition: none;
         }
 
@@ -286,6 +290,7 @@
 
         .features-list {
             list-style: none;
+            flex: 1 1 auto;
             margin-bottom: 1.5rem;
         }
 
@@ -299,6 +304,10 @@
             width: 100%;
             text-align: center;
             display: block;
+        }
+
+        .pricing-card>.full-width {
+            margin-top: auto;
         }
 
         .btn-text {
@@ -449,13 +458,13 @@
                         </div>
                     </div>
                     <div class="dropdown-section">
-                        <a href="#" class="dropdown-item">
+                        <a href="/profile" class="dropdown-item">
                             <i class="fas fa-user"></i> Profile
                         </a>
                         <a href="#" class="dropdown-item">
                             <i class="fas fa-key"></i> API Keys
                         </a>
-                        <a href="/pricing" class="dropdown-item">
+                        <a href="/billing" class="dropdown-item">
                             <i class="fas fa-credit-card"></i> Billing
                         </a>
                         <a href="#" class="dropdown-item">

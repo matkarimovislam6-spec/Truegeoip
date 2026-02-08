@@ -1,31 +1,36 @@
-# How to Configure SMTP (Email Sending)
+# How to Configure Email Sending
 
-To allow the application to send real verification emails, you need to configure an SMTP server. The easiest way for testing is to use a **Gmail** account with an **App Password**.
+To send real verification emails, configure at least one email provider.
 
----
-
-## Step 1: Generate a Gmail App Password
-
-> **Note:** Do NOT use your real Gmail password. You must generate a secure App Password.
-
-1.  Go to your [Google Account Security Page](https://myaccount.google.com/security).
-2.  Ensure **2-Step Verification** is turned **ON**.
-3.  Under "How you sign in to Google", click on **2-Step Verification**, then scroll to the bottom and finding **App passwords**.
-    *   *If you don't see it, search for "App passwords" in the search bar at the top.*
-4.  Create a new App Password:
-    *   **App name**: TrueGeoIP
-    *   Click **Create**.
-5.  Copy the 16-character password (it looks like `abcd efgh ijkl mnop`).
+Recommended: **Resend** (transactional email, production-style)  
+Fallback: **SMTP** (for example Gmail App Password)
 
 ---
 
-## Step 2: Configure the Application
+## Option A (Recommended): Resend
 
-1.  Open the `.env` file in your project folder (if you don't have one, create it).
-2.  Add the following lines:
+1. Create a Resend account and generate an API key.
+2. Open `.env` and add:
 
 ```ini
-# SMTP Configuration (Gmail)
+EMAIL_PROVIDER=auto
+RESEND_API_KEY=your-resend-api-key-here
+RESEND_FROM=onboarding@resend.dev
+```
+
+---
+
+## Option B: SMTP (Gmail)
+
+> Do NOT use your real Gmail password. Use a generated App Password.
+
+1. Go to your Google Account Security page.
+2. Enable 2-Step Verification.
+3. Create an App Password and copy it.
+4. Open `.env` and add:
+
+```ini
+EMAIL_PROVIDER=auto
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -33,12 +38,9 @@ SMTP_PASSWORD=your-app-password-here
 SMTP_FROM=your-email@gmail.com
 ```
 
-*   Replace `your-email@gmail.com` with your actual Gmail address.
-*   Replace `your-app-password-here` with the 16-character code you just copied.
-
 ---
 
-## Step 3: Restart the Server
+## Final Step: Restart the Server
 
 After saving the `.env` file, you must **restart** the server for changes to take effect.
 

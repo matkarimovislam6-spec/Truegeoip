@@ -49,15 +49,15 @@ const Navbar = () => {
                                 </div>
                             </div>
                             <div className="dropdown-section">
-                                <a href="#" className="dropdown-item">
+                                <a href="/profile" className="dropdown-item">
                                     <i className="fas fa-user"></i> Profile
                                 </a>
                                 <a href="#" className="dropdown-item">
                                     <i className="fas fa-key"></i> API Keys
                                 </a>
-                                <Link to="/pricing" className="dropdown-item">
+                                <a href="/billing" className="dropdown-item">
                                     <i className="fas fa-credit-card"></i> Billing
-                                </Link>
+                                </a>
                                 <a href="#" className="dropdown-item">
                                     <i className="fas fa-cog"></i> Settings
                                 </a>

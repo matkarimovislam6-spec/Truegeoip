@@ -6,6 +6,7 @@ const SignUp = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -15,10 +16,28 @@ const SignUp = () => {
         setLoading(true);
         setError('');
 
+        const passwordSymbolPattern = /[^A-Za-z0-9\s]/;
+        if (password.length < 6) {
+            setError('Password must be at least 6 characters.');
+            setLoading(false);
+            return;
+        }
+        if (!passwordSymbolPattern.test(password)) {
+            setError('Password must include at least one symbol.');
+            setLoading(false);
+            return;
+        }
+        if (password !== confirmPassword) {
+            setError('Passwords do not match.');
+            setLoading(false);
+            return;
+        }
+
         const formData = new FormData();
         formData.append('name', name);
         formData.append('email', email);
         formData.append('password', password);
+        formData.append('confirm_password', confirmPassword);
 
         try {
             const res = await axios.post('/signup', formData, {
@@ -75,20 +94,36 @@ const SignUp = () => {
                         />
                     </div>
 
-                    <div style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ marginBottom: '1.25rem' }}>
                         <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.9em' }}>Password</label>
                         <input
                             type="password"
                             name="password"
                             required
                             placeholder="••••••••"
+                            minLength={6}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             style={{ width: '100%', padding: '0.75rem', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: '1rem' }}
                         />
+                        <p style={{ marginTop: '0.5rem', color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>Use at least 6 characters and 1 symbol.</p>
                     </div>
 
-                    <button type="submit" class="btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', padding: '0.875rem', opacity: loading ? 0.7 : 1 }}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.9em' }}>Confirm Password</label>
+                        <input
+                            type="password"
+                            name="confirm_password"
+                            required
+                            placeholder="••••••••"
+                            minLength={6}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            style={{ width: '100%', padding: '0.75rem', background: 'var(--input-bg)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: '1rem' }}
+                        />
+                    </div>
+
+                    <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', padding: '0.875rem', opacity: loading ? 0.7 : 1 }}>
                         {loading ? 'Creating Account...' : 'Sign Up'}
                     </button>
                 </form>

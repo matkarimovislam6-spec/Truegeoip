@@ -1507,8 +1507,9 @@ pre {
 
 /* Features Section */
 .features {
-    padding: 6rem 0;
-    background: rgba(50, 30, 65, 0.6);
+    padding: clamp(5rem, 7vw, 7rem) 0;
+    background: linear-gradient(180deg, rgba(118, 109, 134, 0.95) 0%, rgba(96, 84, 114, 0.98) 100%);
+    overflow: hidden;
 }
 
 .section-title {
@@ -1520,37 +1521,144 @@ pre {
 
 .features .section-title {
     color: #ffffff;
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
 }
 
-.feature-grid {
+.feature-timeline {
+    position: relative;
+    max-width: 980px;
+    margin: 0 auto;
+    padding-left: 5.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.25rem;
+}
+
+.feature-timeline::before {
+    content: "";
+    position: absolute;
+    left: 1.8rem;
+    top: 0.6rem;
+    bottom: 0.6rem;
+    width: 3px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 122, 0, 0.75) 48%, rgba(255, 255, 255, 0.2) 100%);
+}
+
+.feature-step {
+    --feature-accent: #ff7a00;
+    position: relative;
+}
+
+.feature-timeline.is-animated .feature-step {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate3d(0, 52px, 0) scale(0.98);
+    transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.2, 0.8, 0.25, 1), filter 0.65s ease;
+    transition-delay: calc(var(--step-index, 0) * 0.08s);
+}
+
+.feature-timeline.is-animated .feature-step:nth-child(odd) {
+    transform: translate3d(18px, 52px, 0) scale(0.98);
+}
+
+.feature-timeline.is-animated .feature-step:nth-child(even) {
+    transform: translate3d(-18px, 52px, 0) scale(0.98);
+}
+
+.feature-timeline.is-animated .feature-step.is-visible {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) scale(1);
+}
+
+.feature-node {
+    position: absolute;
+    left: -5.5rem;
+    top: 2rem;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 999px;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
+    place-items: center;
+    background: #ffffff;
+    border: 2px solid var(--feature-accent);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.feature-node::after {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border-radius: inherit;
+    background: var(--feature-accent);
+    opacity: 0.2;
+    z-index: -1;
+}
+
+.feature-node i {
+    color: var(--feature-accent);
+    font-size: 1.15rem;
+}
+
+.feature-step.is-visible .feature-node {
+    animation: featureNodePulse 0.55s ease both;
 }
 
 .feature-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    padding: 2rem;
-    border-radius: 16px;
+    background: #f8f8fa;
+    border: 1px solid rgba(255, 122, 0, 0.36);
+    padding: 2.25rem 2.3rem;
+    border-radius: 22px;
     text-align: center;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
+    box-shadow: 0 22px 35px rgba(17, 18, 20, 0.24);
 }
 
 .feature-card:hover {
     transform: translateY(-6px);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 24px 36px rgba(0, 0, 0, 0.34);
     border-color: var(--accent-primary);
 }
 
 .feature-card .icon {
-    font-size: 2.5rem;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 0.95rem;
     margin-bottom: 1rem;
+    display: grid;
+    place-items: center;
+    color: var(--feature-accent);
+    font-size: 1.15rem;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 10px 18px rgba(0, 0, 0, 0.14);
+}
+
+.feature-step:nth-child(1) .feature-card .icon {
+    border-color: rgba(255, 107, 53, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 10px 18px rgba(255, 107, 53, 0.26);
+}
+
+.feature-step:nth-child(2) .feature-card .icon {
+    border-color: rgba(15, 157, 149, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 10px 18px rgba(15, 157, 149, 0.22);
+}
+
+.feature-step:nth-child(3) .feature-card .icon {
+    border-color: rgba(37, 99, 235, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 10px 18px rgba(37, 99, 235, 0.22);
+}
+
+.feature-card .icon i {
+    line-height: 1;
+    font-size: 1.08em;
 }
 
 .feature-card h3 {
@@ -1560,8 +1668,24 @@ pre {
 
 .feature-card p {
     color: var(--text-secondary);
-    font-size: 0.95rem;
+    font-size: 0.98rem;
     line-height: 1.6;
+}
+
+.feature-card strong {
+    color: #3d4148;
+}
+
+@keyframes featureNodePulse {
+    0% {
+        transform: scale(0.78);
+    }
+    72% {
+        transform: scale(1.06);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 /* Footer */
@@ -1599,8 +1723,28 @@ footer {
 }
 
 @media (max-width: 768px) {
-    .feature-grid {
-        grid-template-columns: 1fr;
+    .feature-timeline {
+        padding-left: 0;
+        gap: 1.5rem;
+    }
+
+    .feature-timeline::before {
+        display: none;
+    }
+
+    .feature-timeline.is-animated .feature-step,
+    .feature-timeline.is-animated .feature-step:nth-child(odd),
+    .feature-timeline.is-animated .feature-step:nth-child(even) {
+        transform: translate3d(0, 42px, 0) scale(0.98);
+    }
+
+    .feature-node {
+        position: static;
+        margin: 0 auto -0.75rem;
+    }
+
+    .feature-card {
+        padding: 2rem 1.5rem;
     }
 
     .footer-content {
@@ -1611,6 +1755,32 @@ footer {
 
     .leaflet-map {
         height: 300px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .feature-timeline {
+        max-width: 760px;
+        padding-left: 4.6rem;
+    }
+
+    .feature-node {
+        left: -4.6rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .feature-timeline.is-animated .feature-step,
+    .feature-timeline.is-animated .feature-step:nth-child(odd),
+    .feature-timeline.is-animated .feature-step:nth-child(even) {
+        opacity: 1;
+        filter: none;
+        transform: none;
+        transition: none;
+    }
+
+    .feature-step.is-visible .feature-node {
+        animation: none;
     }
 }
 
@@ -2013,6 +2183,9 @@ footer {
     border-radius: 16px;
     padding: 2rem;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     transition: all 0.3s ease;
 }
 
@@ -2073,6 +2246,7 @@ footer {
 
 .features-list {
     list-style: none;
+    flex: 1 1 auto;
     margin-bottom: 1.5rem;
 }
 
@@ -2086,6 +2260,10 @@ footer {
     width: 100%;
     text-align: center;
     display: block;
+}
+
+.pricing-card > .full-width {
+    margin-top: auto;
 }
 
 /* Orange Theme: Plain, No Haze/Glow */

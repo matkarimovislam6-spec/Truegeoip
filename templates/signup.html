@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up | TrueGeoIP</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -52,7 +53,7 @@
                     <label
                         style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em;">Full
                         Name</label>
-                    <input type="text" name="name" required placeholder="John Doe"
+                    <input type="text" name="name" required placeholder="John Doe" value="{{ name_value or '' }}"
                         style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1rem;">
                 </div>
 
@@ -60,14 +61,25 @@
                     <label
                         style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em;">Email
                         Address</label>
-                    <input type="email" name="email" required placeholder="name@company.com"
+                    <input type="email" name="email" required placeholder="name@company.com" value="{{ email_value or '' }}"
                         style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1rem;">
+                </div>
+
+                <div style="margin-bottom: 1.25rem;">
+                    <label
+                        style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em;">Password</label>
+                    <input type="password" name="password" required placeholder="••••••••" minlength="6"
+                        pattern="(?=.*[^A-Za-z0-9\s]).{6,}"
+                        title="Minimum 6 characters and at least one symbol."
+                        style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1rem;">
+                    <p style="margin-top: 0.5rem; color: var(--text-tertiary); font-size: 0.8rem;">Use at least 6 characters and 1 symbol.</p>
                 </div>
 
                 <div style="margin-bottom: 1.5rem;">
                     <label
-                        style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em;">Password</label>
-                    <input type="password" name="password" required placeholder="••••••••"
+                        style="display: block; color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9em;">Confirm
+                        Password</label>
+                    <input type="password" name="confirm_password" required placeholder="••••••••" minlength="6"
                         style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 1rem;">
                 </div>
 

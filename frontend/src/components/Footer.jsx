@@ -5,7 +5,7 @@ const Footer = () => {
     return (
         <footer>
             <div className="container footer-content">
-                <p>&copy; 2026 IP Intelligence. Built by AntiGravity.</p>
+                <p>&copy; 2026 TrueGeoIP.</p>
                 <div className="footer-links">
                     <Link to="/privacy">Privacy</Link>
                     <Link to="/terms">Terms</Link>

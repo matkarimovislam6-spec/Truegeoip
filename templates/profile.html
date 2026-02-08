@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Settings | TrueGeoIP</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=20260208-profile">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        .profile-settings-page {
+            padding: 120px 0 64px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #fff9f3 0%, #ffffff 100%);
+        }
+
+        .profile-settings-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .settings-panel,
+        .danger-panel,
+        .summary-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .panel-title i {
+            color: var(--accent-primary);
+        }
+
+        .panel-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+        }
+
+        .inline-form {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .inline-form label {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            margin-bottom: 0.35rem;
+            display: block;
+        }
+
+        .inline-form input {
+            width: 100%;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 0.8rem 0.9rem;
+            font-size: 0.95rem;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+
+        .inline-form input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(255, 122, 0, 0.14);
+        }
+
+        .readonly-grid {
+            margin-top: 1.2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+
+        .readonly-item {
+            padding: 0.85rem 0.95rem;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: #fffaf5;
+        }
+
+        .readonly-item .label {
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+            margin-bottom: 0.2rem;
+        }
+
+        .readonly-item .value {
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .alert-box {
+            border-radius: 10px;
+            padding: 0.8rem 0.9rem;
+            margin-bottom: 1rem;
+            font-size: 0.92rem;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #0f766e;
+        }
+
+        .alert-error {
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.25);
+            color: #be123c;
+        }
+
+        .danger-panel {
+            border-color: rgba(244, 63, 94, 0.35);
+            background: linear-gradient(180deg, #fff9fb 0%, #ffffff 100%);
+        }
+
+        .danger-panel .panel-title i {
+            color: #e11d48;
+        }
+
+        .danger-note {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .danger-trigger {
+            background: #e11d48;
+            color: #ffffff;
+            border: 1px solid #e11d48;
+            border-radius: 10px;
+            padding: 0.75rem 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .danger-trigger:hover {
+            background: #be123c;
+            transform: translateY(-1px);
+        }
+
+        .delete-confirm-fields {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .delete-confirm-fields.is-visible {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .danger-btn {
+            background: #e11d48;
+            color: #ffffff;
+            border: 1px solid #e11d48;
+            border-radius: 10px;
+            padding: 0.75rem 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .danger-btn:hover {
+            background: #be123c;
+            transform: translateY(-1px);
+        }
+
+        .summary-list {
+            display: grid;
+            gap: 0.65rem;
+            margin-top: 0.8rem;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.6rem;
+            border-bottom: 1px dashed var(--card-border);
+            padding-bottom: 0.55rem;
+            color: var(--text-secondary);
+        }
+
+        .summary-row strong {
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 980px) {
+            .profile-settings-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .readonly-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-settings-page {
+                padding-top: 100px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                    <img src="/static/img/logo.png" alt="TrueGeoIP Logo" style="height: 32px; width: auto;">
+                    TrueGeoIP
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/#features">Features</a>
+                <a href="/dashboard">Analytics</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="profile-menu">
+                <a href="#" class="profile-avatar-btn">{{ user.name[:1] }}</a>
+                <div class="profile-dropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-header-avatar">{{ user.name[:1] }}</div>
+                        <div class="dropdown-header-info">
+                            <div class="dropdown-header-name">{{ user.name }}</div>
+                            <div class="dropdown-header-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-section">
+                        <a href="/profile" class="dropdown-item">
+                            <i class="fas fa-user"></i> Profile
+                        </a>
+                        <a href="/dashboard" class="dropdown-item">
+                            <i class="fas fa-key"></i> API Keys
+                        </a>
+                        <a href="/billing" class="dropdown-item">
+                            <i class="fas fa-credit-card"></i> Billing
+                        </a>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-section">
+                        <a href="/signout" class="dropdown-item danger">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="profile-settings-page">
+        <div class="container">
+            <div class="profile-settings-layout">
+                <div>
+                    <div class="settings-panel">
+                        <div class="panel-title">
+                            <i class="fas fa-user-gear"></i>
+                            <h1>Profile Settings</h1>
+                        </div>
+                        <p class="panel-subtitle">Manage your account information and security preferences.</p>
+
+                        {% if success_message %}
+                        <div class="alert-box alert-success">{{ success_message }}</div>
+                        {% endif %}
+                        {% if error_message %}
+                        <div class="alert-box alert-error">{{ error_message }}</div>
+                        {% endif %}
+
+                        <form action="/profile/update" method="POST" class="inline-form">
+                            <div>
+                                <label for="name">Display Name</label>
+                                <input id="name" name="name" type="text" required minlength="2" maxlength="80"
+                                    value="{{ user_data.name or '' }}">
+                            </div>
+                            <div>
+                                <label for="email_readonly">Email</label>
+                                <input id="email_readonly" type="text" value="{{ user_data.email }}" disabled>
+                            </div>
+                            <div>
+                                <button type="submit" class="btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+
+                        <div class="readonly-grid">
+                            <div class="readonly-item">
+                                <div class="label">Plan</div>
+                                <div class="value">{{ user_data.plan or 'free' }}</div>
+                            </div>
+                            <div class="readonly-item">
+                                <div class="label">Account Created</div>
+                                <div class="value">{{ created_at_display }}</div>
+                            </div>
+                            <div class="readonly-item">
+                                <div class="label">Projects</div>
+                                <div class="value">{{ project_count }}</div>
+                            </div>
+                            <div class="readonly-item">
+                                <div class="label">Licenses</div>
+                                <div class="value">{{ license_count }}</div>
+                            </div>
+                            <div class="readonly-item" style="grid-column: 1 / -1;">
+                                <div class="label">API Key</div>
+                                <div class="value">{{ user_data.api_key or 'Not generated yet' }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="danger-panel" style="margin-top: 1.25rem;">
+                        <div class="panel-title">
+                            <i class="fas fa-triangle-exclamation"></i>
+                            <h2>Danger Zone</h2>
+                        </div>
+                        <p class="danger-note">
+                            Deleting your account removes your user record, projects, API keys, licenses, and linked
+                            analytics data. This action cannot be undone.
+                        </p>
+                        <form id="deleteAccountForm" action="/profile/delete" method="POST" class="inline-form">
+                            <div>
+                                <button id="revealDeleteFormBtn" type="button" class="danger-trigger"
+                                    {% if show_delete_form %}style="display: none;"{% endif %}>
+                                    Delete Account
+                                </button>
+                            </div>
+                            <div id="deleteConfirmFields"
+                                class="delete-confirm-fields{% if show_delete_form %} is-visible{% endif %}">
+                                <div>
+                                    <label for="confirm_email">Confirm your email</label>
+                                    <input id="confirm_email" name="confirm_email" type="text"
+                                        placeholder="{{ user_data.email }}" required>
+                                </div>
+                                <div>
+                                    <label for="confirm_text">Type DELETE to confirm</label>
+                                    <input id="confirm_text" name="confirm_text" type="text" placeholder="DELETE"
+                                        required>
+                                </div>
+                                {% if has_password %}
+                                <div>
+                                    <label for="current_password">Current password</label>
+                                    <input id="current_password" name="current_password" type="password"
+                                        placeholder="Enter current password" required>
+                                </div>
+                                {% else %}
+                                <div class="alert-box"
+                                    style="margin-bottom: 0; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.24); color: #1d4ed8;">
+                                    This account uses Google sign-in, so no password confirmation is required.
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <button type="submit" class="danger-btn">Confirm Delete Account</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <aside class="summary-panel">
+                    <div class="panel-title">
+                        <i class="fas fa-sliders"></i>
+                        <h3>Quick Settings</h3>
+                    </div>
+                    <p class="panel-subtitle">Useful account actions and shortcuts.</p>
+                    <div class="summary-list">
+                        <div class="summary-row">
+                            <span>Dashboard</span>
+                            <a href="/dashboard"><strong>Open</strong></a>
+                        </div>
+                        <div class="summary-row">
+                            <span>Billing</span>
+                            <a href="/billing"><strong>Manage</strong></a>
+                        </div>
+                        <div class="summary-row">
+                            <span>Documentation</span>
+                            <a href="/docs"><strong>View</strong></a>
+                        </div>
+                        <div class="summary-row">
+                            <span>Sign out</span>
+                            <a href="/signout"><strong>Log out</strong></a>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        const deleteForm = document.getElementById('deleteAccountForm');
+        const revealDeleteBtn = document.getElementById('revealDeleteFormBtn');
+        const deleteConfirmFields = document.getElementById('deleteConfirmFields');
+
+        if (revealDeleteBtn && deleteConfirmFields) {
+            revealDeleteBtn.addEventListener('click', () => {
+                deleteConfirmFields.classList.add('is-visible');
+                revealDeleteBtn.style.display = 'none';
+                const firstInput = deleteConfirmFields.querySelector('input');
+                if (firstInput) firstInput.focus();
+            });
+        }
+
+        if (deleteForm) {
+            deleteForm.addEventListener('submit', (event) => {
+                const ok = window.confirm('Delete your account permanently? This cannot be undone.');
+                if (!ok) {
+                    event.preventDefault();
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

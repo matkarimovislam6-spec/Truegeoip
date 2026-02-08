@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify Email | TrueGeoIP</title>
+    <link rel="icon" type="image/png" href="/static/img/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -41,7 +42,7 @@
             {% if debug_code %}
             <div
                 style="background: rgba(255, 122, 0, 0.12); border: 1px solid var(--accent-primary); color: var(--text-primary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9em; text-align: center;">
-                <strong>Debug Mode:</strong> SMTP Failed.<br>Your code is: <strong>{{ debug_code }}</strong>
+                <strong>Debug Mode:</strong> Email delivery failed.<br>Your code is: <strong>{{ debug_code }}</strong>
             </div>
             {% endif %}
 
