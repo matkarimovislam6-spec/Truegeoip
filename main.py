@@ -1924,6 +1924,18 @@ async def lazy_fetch_elevation(lat: float, lon: float) -> Optional[float]:
         
     return None
 
+
+def coerce_float(value: Any) -> Optional[float]:
+    """Best-effort float coercion for values that may be numbers or 'N/A' strings."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).strip())
+    except Exception:
+        return None
+
 def get_request_client_id(request: Request) -> str:
     """Resolve client identifier for lookup abuse protection."""
     x_forwarded_for = (request.headers.get("x-forwarded-for") or "").strip()
@@ -2007,9 +2019,21 @@ async def check_ip(request: Request, ip: str, response: Response):
         error_response.headers["Retry-After"] = str(retry_after)
         return error_response
 
-    # 1. Check Cache
-    if ip in ip_cache:
-        return ip_cache[ip]
+    # 1. Check Cache (but still allow lazy elevation fetch on stale entries)
+    with cache_lock:
+        cached = ip_cache.get(ip)
+    if cached is not None:
+        info = cached.copy() if isinstance(cached, dict) else cached
+        lat = coerce_float(info.get("latitude") if isinstance(info, dict) else None)
+        lon = coerce_float(info.get("longitude") if isinstance(info, dict) else None)
+        elev = info.get("elevation") if isinstance(info, dict) else None
+        if elev in (None, "N/A") and lat is not None and lon is not None:
+            fetched = await lazy_fetch_elevation(lat, lon)
+            if fetched is not None and isinstance(info, dict):
+                info["elevation"] = fetched
+                with cache_lock:
+                    ip_cache[ip] = info.copy()
+        return info
 
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
@@ -2022,9 +2046,13 @@ async def check_ip(request: Request, ip: str, response: Response):
         raise HTTPException(status_code=400, detail="Invalid IP address format")
     
     
-    # Lazy load elevation if missing
-    if info.get("elevation") is None and info.get("latitude") and info.get("longitude"):
-        info["elevation"] = await lazy_fetch_elevation(info["latitude"], info["longitude"])
+    # Lazy load elevation if missing (treat "N/A" as missing too)
+    lat = coerce_float(info.get("latitude"))
+    lon = coerce_float(info.get("longitude"))
+    if info.get("elevation") in (None, "N/A") and lat is not None and lon is not None:
+        fetched = await lazy_fetch_elevation(lat, lon)
+        if fetched is not None:
+            info["elevation"] = fetched
     
     info["latency_server"] = round(process_time, 2)
     with cache_lock:
