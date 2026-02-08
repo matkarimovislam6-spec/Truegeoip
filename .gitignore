@@ -7,9 +7,11 @@ venv/
 
 # Local secrets
 .env
+IMPORTANT_CREDENTIALS*.txt
 
 # Logs and runtime artifacts
 *.log
+changes.patch
 
 # Local databases and sqlite sidecar files
 *.db

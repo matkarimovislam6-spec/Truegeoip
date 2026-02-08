@@ -1105,6 +1105,8 @@ input[type="text"] {
     font-size: 0.95rem;
     padding: 0.85rem 1.1rem;
     border-radius: 10px;
+    /* Allow flex layouts to shrink inputs on small screens (prevents overflow). */
+    min-width: 0;
     outline: none;
     transition: all 0.3s ease;
 }
@@ -1320,6 +1322,86 @@ button#checkBtn:hover {
 
     .hero-flow-track {
         opacity: 0.55;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile Layout Fixes (Non-breaking Overrides)                                */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+    /* Navbar: prevent link/actions overlap on phones by allowing wrap + scroll row */
+    .nav-container {
+        height: auto;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .nav-container > .logo {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .nav-container > .nav-links {
+        order: 10;
+        flex: 1 1 100%;
+        width: 100%;
+        gap: 1rem;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .nav-links a {
+        white-space: nowrap;
+    }
+
+    /* Profile/auth actions stay on the first row on the right. */
+    .nav-container > :not(.logo):not(.nav-links) {
+        order: 5;
+    }
+
+    .profile-menu {
+        margin-left: 0;
+    }
+
+    .theme-toggle {
+        margin-left: 0;
+    }
+
+    /* Hero needs extra top padding when navbar becomes multi-row. */
+    .hero {
+        padding-top: 160px;
+    }
+}
+
+@media (max-width: 600px) {
+    /* Hero CTAs: avoid text/button collisions on narrow widths. */
+    .hero-cta {
+        flex-wrap: wrap;
+    }
+
+    /* Live Lookup: stack input + button to avoid squishing/overlap. */
+    .input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    button#checkBtn {
+        width: 100%;
+        padding: 0.9rem 1.1rem;
+    }
+
+    /* Card header: allow status chip to wrap under title. */
+    .header-main {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    /* Dropdowns: ensure they fit very small viewports. */
+    .profile-dropdown {
+        width: min(280px, 92vw);
     }
 }
 

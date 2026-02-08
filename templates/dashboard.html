@@ -12,7 +12,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=20260206-legal2">
+    <link rel="stylesheet" href="/static/style.css?v=20260208-mobilefix1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -370,7 +370,7 @@
             <p>Create your first project to start tracking API requests.</p>
             <form action="/dashboard/create-project" method="POST" style="margin-top: 1.5rem;">
                 <input type="text" name="project_name" placeholder="Project Name" required
-                    style="padding: 0.75rem 1rem; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); color: var(--text-primary); margin-right: 0.5rem; width: 250px;">
+                    style="padding: 0.75rem 1rem; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); color: var(--text-primary); margin-right: 0.5rem; width: 100%; max-width: 250px;">
                 <button type="submit" class="btn-primary">Create Project</button>
             </form>
         </div>
