@@ -834,7 +834,7 @@
     <script>
         // Category Toggle Logic
         document.addEventListener('DOMContentLoaded', () => {
-            const categoryBtns = document.querySelectorAll('.category-btn');
+            const categoryBtns = document.querySelectorAll('.category-btn[data-category]');
             const categoryContents = document.querySelectorAll('.category-content');
             const billingBtns = document.querySelectorAll('.billing-btn');
             const billingPriceBlocks = document.querySelectorAll('[data-billing-price][data-monthly]');
@@ -877,6 +877,9 @@
             categoryBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const category = btn.dataset.category;
+                    if (!category) {
+                        return;
+                    }
 
                     // Update active button
                     categoryBtns.forEach(b => b.classList.remove('active'));
