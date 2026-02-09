@@ -85,50 +85,8 @@
             margin: 0 0 1.75rem;
         }
 
-        .billing-toggle {
-            display: inline-flex;
-            gap: 0.5rem;
-            background: var(--card-bg);
-            padding: 0.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--card-border);
-        }
-
-        .billing-btn {
-            padding: 0.65rem 1.35rem;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            border-radius: 10px;
-            transition: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.55rem;
-        }
-
-        .billing-btn:hover {
-            color: var(--text-primary);
-        }
-
-        .billing-btn.active {
-            background: rgba(255, 255, 255, 0.12);
-            color: var(--text-primary);
-            box-shadow: none;
-        }
-
-        .billing-save-inline {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.2rem 0.55rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            letter-spacing: 0.02em;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: rgba(255, 255, 255, 0.06);
+        .billing-toggle-wrap .category-toggle {
+            margin-bottom: 0;
         }
 
         .billing-save-badge {
@@ -664,9 +622,9 @@
             <!-- API Category -->
             <div class="category-content active" id="api-content">
                 <div class="billing-toggle-wrap" aria-label="Billing period">
-                    <div class="billing-toggle">
-                        <button class="billing-btn active" data-billing="monthly">Monthly</button>
-                        <button class="billing-btn" data-billing="annual">Annual <span class="billing-save-inline">Save 20%</span></button>
+                    <div class="category-toggle">
+                        <button class="category-btn billing-btn active" data-billing="monthly">Monthly</button>
+                        <button class="category-btn billing-btn" data-billing="annual">Annual</button>
                     </div>
                 </div>
                 <div class="pricing-grid">
