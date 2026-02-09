@@ -79,7 +79,7 @@ Your verification code is: {code}
 Please enter this code to verify your account.
 
 Best regards,
-TrueGeoIP Team
+True Geo IP Team
     """.strip()
 
 
@@ -100,7 +100,7 @@ async def _send_with_resend(to_email: str, code: str) -> bool:
     payload = {
         "from": resend_from,
         "to": [to_email],
-        "subject": "Verify your account - TrueGeoIP",
+        "subject": "Verify your account - True Geo IP",
         "text": _build_verification_email_text(code),
     }
     if resend_reply_to:
@@ -155,7 +155,7 @@ async def _send_with_smtp(to_email: str, code: str) -> bool:
     message = EmailMessage()
     message["From"] = smtp_from
     message["To"] = to_email
-    message["Subject"] = "Verify your account - TrueGeoIP"
+    message["Subject"] = "Verify your account - True Geo IP"
     message.set_content(_build_verification_email_text(code))
 
     passwords_to_try = [smtp_password]

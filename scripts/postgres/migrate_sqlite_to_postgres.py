@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migrate TrueGeoIP SQLite databases into PostgreSQL.
+Migrate True Geo IP SQLite databases into PostgreSQL.
 
 This migrates:
 - users.db       -> app schema (users/projects/api_keys/licenses)

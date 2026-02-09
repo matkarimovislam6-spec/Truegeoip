@@ -1,6 +1,6 @@
-# How to Run the TrueGeoIP Project
+# How to Run the True Geo IP Project
 
-This is a comprehensive guide to setting up, configuring, and running the TrueGeoIP application.
+This is a comprehensive guide to setting up, configuring, and running the True Geo IP application.
 
 ---
 

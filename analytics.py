@@ -1,5 +1,5 @@
 """
-TrueGeoIP Analytics Module.
+True Geo IP Analytics Module.
 Privacy-first, server-side analytics for network traffic intelligence.
 """
 

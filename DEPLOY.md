@@ -1,6 +1,6 @@
 # Deployment Guide (Linux/Ubuntu)
 
-This guide explains how to deploy the TrueGeoIP application to a production Linux server (e.g., DigitalOcean, AWS EC2, or a dedicated VM).
+This guide explains how to deploy the True Geo IP application to a production Linux server (e.g., DigitalOcean, AWS EC2, or a dedicated VM).
 
 ---
 
@@ -75,7 +75,7 @@ Paste the following configuration:
 
 ```ini
 [Unit]
-Description=Gunicorn instance to serve TrueGeoIP
+Description=Gunicorn instance to serve True Geo IP
 After=network.target
 
 [Service]

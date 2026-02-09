@@ -411,7 +411,7 @@ const Home = () => {
             {/* Features Section */}
             <section id="features" className="features">
                 <div className="container">
-                    <h2 className="section-title">Why choose <span className="gradient-text">TrueGeoIP?</span></h2>
+                    <h2 className="section-title">Why choose <span className="gradient-text">True Geo IP?</span></h2>
                     <div className="feature-timeline">
                         <article className="feature-step" style={{ '--step-index': 0, '--feature-accent': '#ff6b35' }}>
                             <span className="feature-node" aria-hidden="true"><i className="fa-solid fa-user-shield"></i></span>

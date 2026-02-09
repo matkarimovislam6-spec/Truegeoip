@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build lookup indexes for TrueGeoIP SQLite database.
+Build lookup indexes for True Geo IP SQLite database.
 
 Run once on the deployment machine:
     python3 scripts/build_lookup_indexes.py --db /var/www/truegeoip/ripe.sqlite
