@@ -249,6 +249,33 @@
             gap: 0.65rem;
         }
 
+        .consent-box {
+            padding: 0.85rem;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .consent-row {
+            display: flex;
+            gap: 0.65rem;
+            align-items: flex-start;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.45;
+            cursor: pointer;
+        }
+
+        .consent-row input {
+            margin-top: 0.25rem;
+        }
+
+        .consent-row a {
+            color: var(--text-primary);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
         .secure-btn {
             width: 100%;
             justify-content: center;
@@ -405,14 +432,27 @@
                     <p class="field-help">No sensitive card details are stored on this page. Secure processor handoff is
                         performed at the final step.</p>
 
-                    <div class="payment-actions">
-                        <a href="/contact?topic=billing&plan={{ selected_plan_key }}" class="btn-primary secure-btn">
+                    <form action="/contact" method="get" class="payment-actions">
+                        <input type="hidden" name="topic" value="billing">
+                        <input type="hidden" name="plan" value="{{ selected_plan_key }}">
+
+                        <div class="consent-box">
+                            <label class="consent-row">
+                                <input type="checkbox" name="refund_consent" value="1" required>
+                                <span>
+                                    I consent to immediate access to digital services and acknowledge that I lose my right to a refund once usage begins.
+                                    <a href="/terms#no-refund-policy">Read the No-Refund Policy</a>.
+                                </span>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn-primary secure-btn">
                             <i class="fas fa-lock"></i> Continue to Secure Payment
-                        </a>
+                        </button>
                         <a href="/pricing" class="secure-btn btn-soft">
                             <i class="fas fa-arrow-left"></i> Back to Pricing
                         </a>
-                    </div>
+                    </form>
                 </div>
 
                 <div class="payment-card" style="margin-top: 1rem;">
