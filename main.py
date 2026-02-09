@@ -1237,6 +1237,66 @@ CHECKOUT_PLAN_CATALOG = {
             "Optimized for large-scale workloads"
         ]
     },
+    "start_annual": {
+        "name": "Starter (Annual)",
+        "category": "API",
+        "price": "$67",
+        "period": "/yr",
+        "description": "Save 20% with annual billing. For small apps and early products.",
+        "cta_label": "Upgrade to Starter",
+        "features": [
+            "50,000 requests per month",
+            "IP & network insights",
+            "IP type & user type",
+            "Datacenter detection",
+            "Network name",
+            "Location data",
+            "Country & continent",
+            "City & region",
+            "Time zone",
+            "Coordinates (latitude & longitude)",
+            "EU compliance flag"
+        ]
+    },
+    "pro_annual": {
+        "name": "Pro (Annual)",
+        "category": "API",
+        "price": "$144",
+        "period": "/yr",
+        "description": "Save 20% with annual billing. For scaling and production use.",
+        "cta_label": "Upgrade to Pro",
+        "features": [
+            "500,000 requests per month",
+            "Everything in Starter, plus:",
+            "Advanced network intelligence",
+            "ASN & ASN name",
+            "Associated domain",
+            "Security & traffic signals",
+            "VPN detection",
+            "Crawler / bot detection",
+            "Enhanced location data",
+            "ZIP / postal code",
+            "Elevation",
+            "Time & currency info",
+            "UTC offset",
+            "Local currency code & name"
+        ]
+    },
+    "max_annual": {
+        "name": "Max (Annual)",
+        "category": "API",
+        "price": "$240",
+        "period": "/yr",
+        "description": "Save 20% with annual billing. Limited offer • High-volume & high-performance.",
+        "cta_label": "Start Free Trial",
+        "features": [
+            "2,000,000 requests per month",
+            "Everything in Pro, plus:",
+            "Bulk IP lookup endpoint",
+            "High-concurrency support",
+            "Optimized for large-scale workloads"
+        ]
+    },
     "db_onetime": {
         "name": "One-Time Purchase",
         "category": "Database",

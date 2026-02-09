@@ -78,6 +78,73 @@
             font-size: 1.1rem;
         }
 
+        /* Billing Toggle (API) */
+        .billing-toggle-wrap {
+            display: flex;
+            justify-content: center;
+            margin: 0 0 1.75rem;
+        }
+
+        .billing-toggle {
+            display: inline-flex;
+            gap: 0.5rem;
+            background: var(--card-bg);
+            padding: 0.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+        }
+
+        .billing-btn {
+            padding: 0.65rem 1.35rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+
+        .billing-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .billing-btn.active {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            box-shadow: none;
+        }
+
+        .billing-save-inline {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .billing-save-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.22rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: var(--accent-primary);
+            border: 1px solid rgba(255, 122, 0, 0.35);
+            background: rgba(255, 122, 0, 0.08);
+            margin-top: 0.15rem;
+        }
+
         /* Pricing Sections */
         .pricing-section {
             padding: 0 0 6rem;
@@ -385,6 +452,15 @@
             .category-toggle {
                 flex-direction: column;
             }
+
+            .billing-toggle {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .billing-btn {
+                justify-content: center;
+            }
         }
 
         .grid-3-cols {
@@ -587,6 +663,12 @@
 
             <!-- API Category -->
             <div class="category-content active" id="api-content">
+                <div class="billing-toggle-wrap" aria-label="Billing period">
+                    <div class="billing-toggle">
+                        <button class="billing-btn active" data-billing="monthly">Monthly</button>
+                        <button class="billing-btn" data-billing="annual">Annual <span class="billing-save-inline">Save 20%</span></button>
+                    </div>
+                </div>
                 <div class="pricing-grid">
                     <!-- Free Tier -->
                     <div class="pricing-card">
@@ -613,7 +695,9 @@
                         <div class="popular-badge">Most Popular</div>
                         <div class="plan-header">
                             <h3>Starter</h3>
-                            <div class="price">$7<span>/mo</span></div>
+                            <div class="price-container" data-billing-price data-monthly="7">
+                                <div class="price">$7<span>/mo</span></div>
+                            </div>
                             <p class="plan-desc">For small apps and early products.</p>
                         </div>
                         <ul class="features-list">
@@ -637,14 +721,17 @@
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> EU compliance flag
                             </li>
                         </ul>
-                        <a href="/start-checkout?plan=start" class="btn-primary full-width">Upgrade to Starter</a>
+                        <a href="/start-checkout?plan=start" class="btn-primary full-width" data-plan-monthly="start"
+                            data-plan-annual="start_annual">Upgrade to Starter</a>
                     </div>
 
                     <!-- Pro Tier -->
                     <div class="pricing-card">
                         <div class="plan-header">
                             <h3>Pro</h3>
-                            <div class="price">$15<span>/mo</span></div>
+                            <div class="price-container" data-billing-price data-monthly="15">
+                                <div class="price">$15<span>/mo</span></div>
+                            </div>
                             <p class="plan-desc">For scaling and production use.</p>
                         </div>
                         <ul class="features-list">
@@ -674,7 +761,8 @@
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Local currency code
                                 &amp; name</li>
                         </ul>
-                        <a href="/start-checkout?plan=pro" class="btn-secondary full-width">Upgrade to Pro</a>
+                        <a href="/start-checkout?plan=pro" class="btn-secondary full-width" data-plan-monthly="pro"
+                            data-plan-annual="pro_annual">Upgrade to Pro</a>
                     </div>
 
                     <!-- Max Tier -->
@@ -682,7 +770,9 @@
                         <div class="popular-badge" style="background: var(--accent-secondary);">Best Value</div>
                         <div class="plan-header">
                             <h3>Max</h3>
-                            <div class="price">$25<span>/mo</span></div>
+                            <div class="price-container" data-billing-price data-monthly="25">
+                                <div class="price">$25<span>/mo</span></div>
+                            </div>
                             <p class="plan-desc">Limited offer • High-volume &amp; high-performance.</p>
                         </div>
                         <ul class="features-list">
@@ -698,6 +788,7 @@
                                 large-scale workloads</li>
                         </ul>
                         <a href="/start-checkout?plan=max" class="btn-primary full-width"
+                            data-plan-monthly="max" data-plan-annual="max_annual"
                             style="background: var(--accent-secondary);">Start
                             Free Trial</a>
                     </div>
@@ -787,6 +878,43 @@
         document.addEventListener('DOMContentLoaded', () => {
             const categoryBtns = document.querySelectorAll('.category-btn');
             const categoryContents = document.querySelectorAll('.category-content');
+            const billingBtns = document.querySelectorAll('.billing-btn');
+            const billingPriceBlocks = document.querySelectorAll('[data-billing-price][data-monthly]');
+            const billingPlanLinks = document.querySelectorAll('[data-plan-monthly][data-plan-annual]');
+
+            let billingCycle = 'monthly';
+
+            const renderBilling = () => {
+                const annual = billingCycle === 'annual';
+
+                billingPriceBlocks.forEach(block => {
+                    const monthly = Number(block.dataset.monthly || '0');
+                    if (!monthly) {
+                        return;
+                    }
+
+                    if (!annual) {
+                        block.innerHTML = `<div class="price">$${monthly}<span>/mo</span></div>`;
+                        return;
+                    }
+
+                    const original = monthly * 12;
+                    const discounted = Math.round(original * 0.8);
+                    block.innerHTML = [
+                        `<div class="price scratched">$${original}<span>/yr</span></div>`,
+                        `<div class="price deal-price">$${discounted}<span>/yr</span></div>`,
+                        `<div class="billing-save-badge">Save 20%</div>`
+                    ].join('');
+                });
+
+                billingPlanLinks.forEach(link => {
+                    const planKey = annual ? link.dataset.planAnnual : link.dataset.planMonthly;
+                    if (!planKey) {
+                        return;
+                    }
+                    link.setAttribute('href', `/start-checkout?plan=${encodeURIComponent(planKey)}`);
+                });
+            };
 
             categoryBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -806,6 +934,22 @@
                 });
             });
 
+            billingBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const next = btn.dataset.billing;
+                    if (!next || next === billingCycle) {
+                        return;
+                    }
+                    billingCycle = next;
+
+                    billingBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    renderBilling();
+                });
+            });
+
+            renderBilling();
         });
     </script>
 </body>
