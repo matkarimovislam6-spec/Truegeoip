@@ -14,7 +14,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=20260208-ui1">
+    <link rel="stylesheet" href="/static/style.css?v=20260210-mobilefeatures1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .legal-shell {
@@ -80,6 +80,15 @@
             margin-bottom: 0.45rem;
         }
     </style>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FZ938EG6X2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-FZ938EG6X2');
+    </script>
 </head>
 
 <body>
@@ -94,6 +103,19 @@
             </div>
             <div class="nav-links">
                 <a href="/#features">Features</a>
+                <details class="nav-dropdown">
+                    <summary>Solutions <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+                    <div class="nav-dropdown-menu">
+                        <a href="/solutions/personalization">
+                            <span class="nav-dropdown-title">Personalization</span>
+                            <span class="nav-dropdown-desc">Localize onboarding and content in real time.</span>
+                        </a>
+                        <a href="/solutions/cybersecurity-anti-fraud">
+                            <span class="nav-dropdown-title">Cybersecurity and Anti-Fraud</span>
+                            <span class="nav-dropdown-desc">Detect and prevent fraudulence early.</span>
+                        </a>
+                    </div>
+                </details>
                 <a href="/dashboard">Analytics</a>
                 <a href="/pricing">Pricing</a>
                 <a href="/contact">Contact</a>
@@ -162,22 +184,27 @@
         <section class="legal-section">
             <h2>2. Service Scope</h2>
             <p>
-                True Geo IP provides IP intelligence, geolocation, ASN enrichment, and analytics features through a web interface and API.
-                Service outputs are provided on a best-effort basis and may vary by source coverage and network behavior.
+                True Geo IP provides IP intelligence, geolocation, ASN enrichment, and analytics features through a web
+                interface and API.
+                Service outputs are provided on a best-effort basis and may vary by source coverage and network
+                behavior.
             </p>
             <p>
-                <strong>Automated Service Nature.</strong> The Service is provided on an automated basis. All processing is performed by automated
+                <strong>Automated Service Nature.</strong> The Service is provided on an automated basis. All processing
+                is performed by automated
                 systems without human intervention in individual requests, lookups, or outputs.
             </p>
             <p>
-                The Company does not manually access, analyze, or modify user-generated queries or results during normal service operation.
+                The Company does not manually access, analyze, or modify user-generated queries or results during normal
+                service operation.
             </p>
         </section>
 
         <section class="legal-section">
             <h2>3. Privacy and Compliance Responsibilities</h2>
             <p>
-                Our Privacy Policy describes our processing obligations. You are responsible for your own downstream compliance
+                Our Privacy Policy describes our processing obligations. You are responsible for your own downstream
+                compliance
                 obligations under applicable laws and regulations when you use service data in your systems.
             </p>
         </section>
@@ -195,14 +222,16 @@
             <h2>5. Security Commitments</h2>
             <p>
                 We maintain technical and organizational controls aligned with enterprise standards and control families
-                (including ISO/IEC 27001 style controls, SOC 2 trust principles, and NIST-oriented risk management practices).
+                (including ISO/IEC 27001 style controls, SOC 2 trust principles, and NIST-oriented risk management
+                practices).
             </p>
         </section>
 
         <section class="legal-section">
             <h2>6. Billing and Suspension</h2>
             <p>
-                Paid subscriptions renew under your selected billing cycle unless canceled. We may suspend or terminate access
+                Paid subscriptions renew under your selected billing cycle unless canceled. We may suspend or terminate
+                access
                 for payment failures, abuse, legal requirements, or material breaches of these Terms.
             </p>
         </section>
@@ -211,13 +240,15 @@
             <h2 id="no-refund-policy">7. No-Refund Policy</h2>
             <p class="legal-meta">Effective date: 09.02.2026<br>Last updated: 09.02.2026</p>
             <p>
-                This No-Refund Policy applies to all purchases made through True Geo IP ("Company", "we", "us", "our"), including subscriptions,
+                This No-Refund Policy applies to all purchases made through True Geo IP ("Company", "we", "us", "our"),
+                including subscriptions,
                 API access, usage-based plans, and data services.
             </p>
 
             <h3>7.1 Digital Service &amp; Instant Access</h3>
             <p>
-                True Geo IP provides digital services and data products, including IP geolocation, IP intelligence, analytics, and related APIs.
+                True Geo IP provides digital services and data products, including IP geolocation, IP intelligence,
+                analytics, and related APIs.
                 Access to these services is granted immediately upon successful payment.
             </p>
             <p>By completing a purchase, you acknowledge that:</p>
@@ -242,7 +273,8 @@
 
             <h3>7.3 EU &amp; UK Consumer Rights (Digital Content Exception)</h3>
             <p>
-                In accordance with EU Directive 2011/83/EU and UK Consumer Contracts Regulations, digital content is not eligible for a refund once:
+                In accordance with EU Directive 2011/83/EU and UK Consumer Contracts Regulations, digital content is not
+                eligible for a refund once:
             </p>
             <ul>
                 <li>Performance has begun, and</li>
@@ -257,7 +289,8 @@
 
             <h3>7.4 Refunds Before Any Usage (Limited Exception)</h3>
             <p>
-                If you purchased a plan but did not access or use the service in any way, you may request a refund within 14 days of purchase.
+                If you purchased a plan but did not access or use the service in any way, you may request a refund
+                within 14 days of purchase.
             </p>
             <p>Eligibility conditions:</p>
             <ul>
@@ -270,7 +303,8 @@
 
             <h3>7.5 Free Trials &amp; Evaluation Responsibility</h3>
             <p>
-                We provide free tiers, trials, or limited access options to allow evaluation before purchase. It is the customer's responsibility to test
+                We provide free tiers, trials, or limited access options to allow evaluation before purchase. It is the
+                customer's responsibility to test
                 the service prior to upgrading or purchasing a paid plan.
             </p>
             <p>Purchases made without prior evaluation do not automatically qualify for refunds.</p>
@@ -313,12 +347,14 @@
 
             <h3>7.10 Policy Updates</h3>
             <p>
-                We may update this No-Refund Policy at any time. Changes take effect immediately upon publication on our website.
+                We may update this No-Refund Policy at any time. Changes take effect immediately upon publication on our
+                website.
             </p>
 
             <h3>Checkout Acknowledgment</h3>
             <p>
-                "I consent to immediate access to digital services and acknowledge that I lose my right to a refund once usage begins."
+                "I consent to immediate access to digital services and acknowledge that I lose my right to a refund once
+                usage begins."
             </p>
         </section>
 
@@ -333,15 +369,18 @@
         <section class="legal-section">
             <h2>9. Disclaimers and Liability</h2>
             <p>
-                Services are provided "as is" and "as available." To the maximum extent allowed by law, we disclaim implied warranties and
-                limit liability for indirect or consequential damages, including lost profits, data, and business interruption.
+                Services are provided "as is" and "as available." To the maximum extent allowed by law, we disclaim
+                implied warranties and
+                limit liability for indirect or consequential damages, including lost profits, data, and business
+                interruption.
             </p>
         </section>
 
         <section class="legal-section">
             <h2>10. Changes to Terms</h2>
             <p>
-                We may update these Terms periodically. Material changes will be posted on this page with a revised effective date.
+                We may update these Terms periodically. Material changes will be posted on this page with a revised
+                effective date.
             </p>
         </section>
 
@@ -357,6 +396,7 @@
         <div class="container footer-content">
             <p>&copy; 2026 True Geo IP</p>
             <div class="footer-links">
+                <a href="/docs">Docs</a>
                 <a href="/privacy">Privacy</a>
                 <a href="/terms">Terms</a>
                 <a href="/contact">Contact</a>

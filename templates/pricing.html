@@ -14,7 +14,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=20260208-ui1">
+    <link rel="stylesheet" href="/static/style.css?v=20260210-mobilefeatures1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Pricing Page Specific Styles */
@@ -101,6 +101,28 @@
             border: 1px solid rgba(255, 122, 0, 0.35);
             background: rgba(255, 122, 0, 0.08);
             margin-top: 0.15rem;
+        }
+
+        .billing-default-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.18rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            line-height: 1;
+            white-space: nowrap;
+            flex-shrink: 0;
+            color: var(--accent-primary);
+            border: 1px solid rgba(255, 122, 0, 0.35);
+            background: rgba(255, 122, 0, 0.08);
+        }
+
+        .category-btn.active .billing-default-badge {
+            color: var(--palette-3);
+            border-color: rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.18);
         }
 
         /* Pricing Sections */
@@ -463,6 +485,15 @@
             margin-top: -5px;
         }
     </style>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FZ938EG6X2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-FZ938EG6X2');
+    </script>
 </head>
 
 <body>
@@ -478,6 +509,19 @@
             </div>
             <div class="nav-links">
                 <a href="/#features">Features</a>
+                <details class="nav-dropdown">
+                    <summary>Solutions <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+                    <div class="nav-dropdown-menu">
+                        <a href="/solutions/personalization">
+                            <span class="nav-dropdown-title">Personalization</span>
+                            <span class="nav-dropdown-desc">Localize onboarding and content in real time.</span>
+                        </a>
+                        <a href="/solutions/cybersecurity-anti-fraud">
+                            <span class="nav-dropdown-title">Cybersecurity and Anti-Fraud</span>
+                            <span class="nav-dropdown-desc">Detect and prevent fraudulence early.</span>
+                        </a>
+                    </div>
+                </details>
                 <a href="/#api">API</a>
                 <a href="/dashboard">Analytics</a>
                 <a href="/pricing" class="active">Pricing</a>
@@ -623,8 +667,9 @@
             <div class="category-content active" id="api-content">
                 <div class="billing-toggle-wrap" aria-label="Billing period">
                     <div class="category-toggle">
-                        <button class="category-btn billing-btn active" data-billing="monthly">Monthly</button>
-                        <button class="category-btn billing-btn" data-billing="annual">Annual</button>
+                        <button class="category-btn billing-btn" data-billing="monthly">Monthly</button>
+                        <button class="category-btn billing-btn active" data-billing="annual">Annual <span
+                                class="billing-default-badge">Recommended</span></button>
                     </div>
                 </div>
                 <div class="pricing-grid">
@@ -640,10 +685,15 @@
                             </li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Basic IP geolocation
                             </li>
+                            <li><i class="fas fa-check" style="color: var(--text-primary);"></i> <strong>1 Request /
+                                    Second</strong></li>
+                            <li><i class="fas fa-times-circle" style="color: var(--error-fg);"></i> No Burst Capacity
+                            </li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Community support
                             </li>
                             <li><i class="fas fa-times-circle" style="color: var(--error-fg);"></i> No ASN data</li>
-                            <li><i class="fas fa-times-circle" style="color: var(--error-fg);"></i> No VPN detection</li>
+                            <li><i class="fas fa-times-circle" style="color: var(--error-fg);"></i> No VPN detection
+                            </li>
                         </ul>
                         <a href="/start-checkout?plan=free" class="btn-secondary full-width">Get Started</a>
                     </div>
@@ -654,13 +704,17 @@
                         <div class="plan-header">
                             <h3>Starter</h3>
                             <div class="price-container" data-billing-price data-monthly="7">
-                                <div class="price">$7<span>/mo</span></div>
+                                <div class="price scratched">$84<span>/yr</span></div>
+                                <div class="price deal-price">$67<span>/yr</span></div>
+                                <div class="billing-save-badge">Save 20%</div>
                             </div>
                             <p class="plan-desc">For small apps and early products.</p>
                         </div>
                         <ul class="features-list">
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> 50,000 requests per
                                 month</li>
+                            <li><i class="fas fa-check" style="color: var(--text-primary);"></i> <strong>5 RPS</strong>
+                                / 25 Burst</li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> IP &amp; network
                                 insights</li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> IP type &amp; user
@@ -679,8 +733,8 @@
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> EU compliance flag
                             </li>
                         </ul>
-                        <a href="/start-checkout?plan=start" class="btn-primary full-width" data-plan-monthly="start"
-                            data-plan-annual="start_annual">Upgrade to Starter</a>
+                        <a href="/start-checkout?plan=start_annual" class="btn-primary full-width"
+                            data-plan-monthly="start" data-plan-annual="start_annual">Upgrade to Starter</a>
                     </div>
 
                     <!-- Pro Tier -->
@@ -688,13 +742,17 @@
                         <div class="plan-header">
                             <h3>Pro</h3>
                             <div class="price-container" data-billing-price data-monthly="15">
-                                <div class="price">$15<span>/mo</span></div>
+                                <div class="price scratched">$180<span>/yr</span></div>
+                                <div class="price deal-price">$144<span>/yr</span></div>
+                                <div class="billing-save-badge">Save 20%</div>
                             </div>
                             <p class="plan-desc">For scaling and production use.</p>
                         </div>
                         <ul class="features-list">
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> 500,000 requests per
                                 month</li>
+                            <li><i class="fas fa-check" style="color: var(--text-primary);"></i> <strong>10 RPS</strong>
+                                / 50 Burst</li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Everything in
                                 Starter, plus:</li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Advanced network
@@ -719,8 +777,8 @@
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Local currency code
                                 &amp; name</li>
                         </ul>
-                        <a href="/start-checkout?plan=pro" class="btn-secondary full-width" data-plan-monthly="pro"
-                            data-plan-annual="pro_annual">Upgrade to Pro</a>
+                        <a href="/start-checkout?plan=pro_annual" class="btn-secondary full-width"
+                            data-plan-monthly="pro" data-plan-annual="pro_annual">Upgrade to Pro</a>
                     </div>
 
                     <!-- Max Tier -->
@@ -729,13 +787,17 @@
                         <div class="plan-header">
                             <h3>Max</h3>
                             <div class="price-container" data-billing-price data-monthly="25">
-                                <div class="price">$25<span>/mo</span></div>
+                                <div class="price scratched">$300<span>/yr</span></div>
+                                <div class="price deal-price">$240<span>/yr</span></div>
+                                <div class="billing-save-badge">Save 20%</div>
                             </div>
                             <p class="plan-desc">Limited offer • High-volume &amp; high-performance.</p>
                         </div>
                         <ul class="features-list">
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> 2,000,000 requests
                                 per month</li>
+                            <li><i class="fas fa-check" style="color: var(--text-primary);"></i> <strong>50 RPS</strong>
+                                / 100 Burst</li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Everything in Pro,
                                 plus:</li>
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Bulk IP lookup
@@ -745,9 +807,8 @@
                             <li><i class="fas fa-check" style="color: var(--text-primary);"></i> Optimized for
                                 large-scale workloads</li>
                         </ul>
-                        <a href="/start-checkout?plan=max" class="btn-primary full-width"
-                            data-plan-monthly="max" data-plan-annual="max_annual"
-                            style="background: var(--accent-secondary);">Start
+                        <a href="/start-checkout?plan=max_annual" class="btn-primary full-width" data-plan-monthly="max"
+                            data-plan-annual="max_annual" style="background: var(--accent-secondary);">Start
                             Free Trial</a>
                     </div>
 
@@ -804,7 +865,8 @@
                 <div class="faq-item">
                     <h4>Do you offer refunds?</h4>
                     <p>
-                        Refunds are generally not available once the service is accessed or used. If you purchased a plan and did not access or use
+                        Refunds are generally not available once the service is accessed or used. If you purchased a
+                        plan and did not access or use
                         the service in any way, you may request a refund within 14 days (case-by-case). See our
                         <a href="/terms#no-refund-policy">No-Refund Policy</a>.
                     </p>
@@ -812,7 +874,8 @@
                 <div class="faq-item">
                     <h4>Is my data reviewed by humans?</h4>
                     <p>
-                        No. True Geo IP is a fully automated platform. IP lookups, intelligence results, and analytics are generated entirely by
+                        No. True Geo IP is a fully automated platform. IP lookups, intelligence results, and analytics
+                        are generated entirely by
                         automated systems. Human review of individual user requests or results does not occur.
                     </p>
                 </div>
@@ -824,6 +887,7 @@
         <div class="container footer-content">
             <p>&copy; 2026 True Geo IP</p>
             <div class="footer-links">
+                <a href="/docs">Docs</a>
                 <a href="/privacy">Privacy</a>
                 <a href="/terms">Terms</a>
                 <a href="/contact">Contact</a>
@@ -840,7 +904,7 @@
             const billingPriceBlocks = document.querySelectorAll('[data-billing-price][data-monthly]');
             const billingPlanLinks = document.querySelectorAll('[data-plan-monthly][data-plan-annual]');
 
-            let billingCycle = 'monthly';
+            let billingCycle = 'annual';
 
             const renderBilling = () => {
                 const annual = billingCycle === 'annual';

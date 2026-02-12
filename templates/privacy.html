@@ -14,7 +14,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=20260208-ui1">
+    <link rel="stylesheet" href="/static/style.css?v=20260210-mobilefeatures1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .legal-shell {
@@ -80,6 +80,15 @@
             margin-bottom: 0.45rem;
         }
     </style>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FZ938EG6X2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-FZ938EG6X2');
+    </script>
 </head>
 
 <body>
@@ -94,6 +103,19 @@
             </div>
             <div class="nav-links">
                 <a href="/#features">Features</a>
+                <details class="nav-dropdown">
+                    <summary>Solutions <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+                    <div class="nav-dropdown-menu">
+                        <a href="/solutions/personalization">
+                            <span class="nav-dropdown-title">Personalization</span>
+                            <span class="nav-dropdown-desc">Localize onboarding and content in real time.</span>
+                        </a>
+                        <a href="/solutions/cybersecurity-anti-fraud">
+                            <span class="nav-dropdown-title">Cybersecurity and Anti-Fraud</span>
+                            <span class="nav-dropdown-desc">Detect and prevent fraudulence early.</span>
+                        </a>
+                    </div>
+                </details>
                 <a href="/dashboard">Analytics</a>
                 <a href="/pricing">Pricing</a>
                 <a href="/contact">Contact</a>
@@ -154,20 +176,24 @@
         <section class="legal-section">
             <h2>1. Scope and Principles</h2>
             <p>
-                This policy explains how True Geo IP collects, uses, stores, and protects personal data across our website,
+                This policy explains how True Geo IP collects, uses, stores, and protects personal data across our
+                website,
                 API, analytics, and support channels. Our program is guided by data minimization, purpose limitation,
                 transparency, and accountability.
             </p>
             <h3>Automated Processing &amp; No Human Review</h3>
             <p>
-                <strong>Automated Processing.</strong> True Geo IP operates as a fully automated service. All data processing, IP lookups, analytics,
+                <strong>Automated Processing.</strong> True Geo IP operates as a fully automated service. All data
+                processing, IP lookups, analytics,
                 and intelligence generation are performed automatically by software systems.
             </p>
             <p>
-                No human-driven services or manual data review are involved in the processing of user queries, API requests, or results.
+                No human-driven services or manual data review are involved in the processing of user queries, API
+                requests, or results.
             </p>
             <p>
-                Human access to user data does not occur as part of normal service operation. Any system maintenance, infrastructure monitoring,
+                Human access to user data does not occur as part of normal service operation. Any system maintenance,
+                infrastructure monitoring,
                 or technical support activities are conducted without reviewing individual user queries or results.
             </p>
         </section>
@@ -177,15 +203,18 @@
             <ul>
                 <li><strong>Account data:</strong> name, email, authentication data, and profile settings.</li>
                 <li><strong>Billing data:</strong> subscription and invoice metadata from payment providers.</li>
-                <li><strong>Service telemetry:</strong> API request metadata, timing, and error logs for reliability and abuse prevention.</li>
-                <li><strong>Security logs:</strong> events needed for monitoring, investigations, and incident response.</li>
+                <li><strong>Service telemetry:</strong> API request metadata, timing, and error logs for reliability and
+                    abuse prevention.</li>
+                <li><strong>Security logs:</strong> events needed for monitoring, investigations, and incident response.
+                </li>
             </ul>
         </section>
 
         <section class="legal-section">
             <h2>3. Global Privacy Standards</h2>
             <p>
-                We structure our controls to support globally recognized requirements and customer expectations, including
+                We structure our controls to support globally recognized requirements and customer expectations,
+                including
                 GDPR/UK GDPR, CCPA/CPRA, LGPD, PIPEDA, APPI, and Singapore PDPA where applicable.
             </p>
         </section>
@@ -193,8 +222,10 @@
         <section class="legal-section">
             <h2>4. Lawful Basis and Data Use</h2>
             <p>
-                We process data under lawful bases such as contract performance, legitimate interests, legal obligations,
-                and consent (where required). Data is used to deliver services, secure infrastructure, prevent fraud, and
+                We process data under lawful bases such as contract performance, legitimate interests, legal
+                obligations,
+                and consent (where required). Data is used to deliver services, secure infrastructure, prevent fraud,
+                and
                 comply with law.
             </p>
         </section>
@@ -202,8 +233,10 @@
         <section class="legal-section">
             <h2>5. Security and Control Frameworks</h2>
             <p>
-                Our safeguards align with enterprise security practices informed by ISO/IEC 27001 control domains, SOC 2 trust
-                principles, and NIST-style risk management. Controls include least privilege access, encrypted transport,
+                Our safeguards align with enterprise security practices informed by ISO/IEC 27001 control domains, SOC 2
+                trust
+                principles, and NIST-style risk management. Controls include least privilege access, encrypted
+                transport,
                 monitoring, vulnerability management, and incident response procedures.
             </p>
         </section>
@@ -211,7 +244,8 @@
         <section class="legal-section">
             <h2>6. Data Retention and Deletion</h2>
             <p>
-                Data is retained only for the minimum period necessary for service delivery, legal compliance, and security operations.
+                Data is retained only for the minimum period necessary for service delivery, legal compliance, and
+                security operations.
                 When no longer required, data is deleted or de-identified according to our retention schedule.
             </p>
         </section>
@@ -219,14 +253,16 @@
         <section class="legal-section">
             <h2>7. International Data Transfers</h2>
             <p>
-                For cross-border processing, we apply safeguards such as contractual protections and transfer risk assessments
+                For cross-border processing, we apply safeguards such as contractual protections and transfer risk
+                assessments
                 to meet applicable regional transfer obligations.
             </p>
         </section>
 
         <section class="legal-section">
             <h2>8. Your Privacy Rights</h2>
-            <p>Depending on your location, you may have rights to access, correct, delete, port, or restrict processing of your data.</p>
+            <p>Depending on your location, you may have rights to access, correct, delete, port, or restrict processing
+                of your data.</p>
             <p>To submit a request, contact <strong>matkarimovislam6@gmail.com</strong>.</p>
         </section>
     </main>
@@ -235,6 +271,7 @@
         <div class="container footer-content">
             <p>&copy; 2026 True Geo IP</p>
             <div class="footer-links">
+                <a href="/docs">Docs</a>
                 <a href="/privacy">Privacy</a>
                 <a href="/terms">Terms</a>
                 <a href="/contact">Contact</a>

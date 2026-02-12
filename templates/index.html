@@ -11,13 +11,22 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260208-iconfix2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/static/style.css?v=20260208-ui1">
+    <link rel="stylesheet" href="/static/style.css?v=20260211-mobilefix7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
         integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FZ938EG6X2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-FZ938EG6X2');
+    </script>
 </head>
 
 <body>
@@ -31,11 +40,36 @@
                     True Geo IP
                 </a>
             </div>
+            <button class="mobile-menu-toggle" aria-label="Toggle navigation">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
             <div class="nav-links">
                 <a href="#features">Features</a>
+                <div class="nav-dropdown-wrapper">
+                    <button class="nav-dropdown-btn">Solutions <i class="fa-solid fa-chevron-down"
+                            aria-hidden="true"></i></button>
+                    <div class="nav-dropdown-menu">
+                        <a href="/solutions/personalization">
+                            <span class="nav-dropdown-title">Personalization</span>
+                            <span class="nav-dropdown-desc">Localize onboarding and content in real time.</span>
+                        </a>
+                        <a href="/solutions/cybersecurity-anti-fraud">
+                            <span class="nav-dropdown-title">Cybersecurity and Anti-Fraud</span>
+                            <span class="nav-dropdown-desc">Detect and prevent fraudulence early.</span>
+                        </a>
+                    </div>
+                </div>
                 <a href="/dashboard">Analytics</a>
                 <a href="/pricing">Pricing</a>
                 <a href="/contact">Contact</a>
+
+                {% if not user %}
+                <div class="mobile-auth-links">
+                    <a href="/signin" class="mobile-signin">Sign In</a>
+                    <a href="/signup" class="btn-primary">Get Started</a>
+                </div>
+                {% endif %}
             </div>
 
             {% if user %}
@@ -72,7 +106,7 @@
                 </div>
             </div>
             {% else %}
-            <div style="display: flex; gap: 0.75rem;">
+            <div class="desktop-auth-links">
                 <a href="/signin"
                     style="color: var(--text-secondary); text-decoration: none; font-weight: 500; display: flex; align-items: center;">Sign
                     In</a>
@@ -121,11 +155,11 @@
             <!-- Live Demo Card (Functional) -->
             <div class="hero-demo">
                 <div class="card">
-                        <div class="card-header">
-                            <div class="header-main">
-                                <h2>Live Lookup</h2>
-                            </div>
+                    <div class="card-header">
+                        <div class="header-main">
+                            <h2>Live Lookup</h2>
                         </div>
+                    </div>
 
                     <div class="input-group" data-client-ip="{{ client_ip }}">
                         <input type="text" id="ipInput" placeholder="Enter IP address (e.g., 8.8.8.8)"
@@ -144,6 +178,73 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust Stats Section -->
+    <section class="trust-stats" aria-label="Trust statistics">
+        <div class="container">
+            <div class="trust-stats-header">
+                <div>
+                    <div class="trust-stats-kicker">
+                        <span class="trust-live">
+                            <span class="trust-live-dot" aria-hidden="true"></span>
+                            Live stats
+                        </span>
+                        <span class="trust-asof">as of <span id="marketingStatsAsOf">now</span></span>
+                    </div>
+                    <h2 class="trust-stats-title">Proof you can ship on.</h2>
+                    <p class="trust-stats-sub">
+                        Server-side latency, dataset scale, refresh cadence, and uptime.
+                    </p>
+                </div>
+                <div class="trust-stats-actions">
+                    <a class="btn-primary" href="/pricing">See Pricing</a>
+                </div>
+            </div>
+
+            <div class="trust-stats-grid" data-marketing-stats>
+                <article class="trust-stat">
+                    <div class="trust-stat-value">
+                        <span class="trust-number" data-stat="latency_p50_ms" data-prefix="~"
+                            data-format="int">25</span>
+                        <span class="trust-unit">ms</span>
+                    </div>
+                    <div class="trust-stat-label">Server Processing</div>
+                    <div class="trust-stat-desc">Median compute time. Network and TLS vary by region.</div>
+                </article>
+
+                <article class="trust-stat">
+                    <div class="trust-stat-value">
+                        <span class="trust-text">99.9%+</span>
+                    </div>
+                    <div class="trust-stat-label">Global IP Coverage</div>
+                    <div class="trust-stat-desc">Built from <span data-stat="total_ranges_display">23.5M+</span>
+                        high-precision network ranges.</div>
+                </article>
+
+                <article class="trust-stat">
+                    <div class="trust-stat-value">
+                        <span class="trust-text" data-stat="refresh_cadence">Daily</span>
+                    </div>
+                    <div class="trust-stat-label">Dataset Refresh</div>
+                    <div class="trust-stat-desc">We refresh and update our databases on daily basis to keep up with
+                        latest IP changes</div>
+                </article>
+
+                <article class="trust-stat">
+                    <div class="trust-stat-value">
+                        <span class="trust-text">99%</span>
+                    </div>
+                    <div class="trust-stat-label">Uptime</div>
+                    <div class="trust-stat-desc">Global availability and service uptime.</div>
+                </article>
+            </div>
+
+            <div class="trust-stats-footnote">
+                <span class="trust-footnote-dot" aria-hidden="true"></span>
+                Stats are refreshed automatically. Latency is measured server-side.
             </div>
         </div>
     </section>
@@ -176,14 +277,18 @@
 
                     <div class="value-propositions">
                         <div class="value-item">
-                            <div class="value-icon">♾️</div>
+                            <div class="value-icon-wrapper">
+                                <i class="fa-solid fa-infinity"></i>
+                            </div>
                             <div class="value-text">
                                 <strong>Unlimited Requests</strong>
                                 <span>No hard caps or overage fees.</span>
                             </div>
                         </div>
                         <div class="value-item">
-                            <div class="value-icon">📉</div>
+                            <div class="value-icon-wrapper">
+                                <i class="fa-solid fa-money-bill-wave"></i>
+                            </div>
                             <div class="value-text">
                                 <strong>Cost Effective</strong>
                                 <span>Significantly cheaper than competitors.</span>
@@ -233,7 +338,8 @@
                     <div class="feature-card">
                         <div class="icon"><i class="fa-solid fa-earth-americas"></i></div>
                         <h3>Convert via Localization</h3>
-                        <p>Serve the right content to the right audience. Use <strong>ultra-high accurate regional</strong> data
+                        <p>Serve the right content to the right audience. Use <strong>ultra-high accurate
+                                regional</strong> data
                             to pre-fill currencies, languages, and timezones for a friction-free experience.</p>
                     </div>
                 </article>
@@ -255,6 +361,7 @@
         <div class="container footer-content">
             <p>&copy; 2026 True Geo IP</p>
             <div class="footer-links">
+                <a href="/docs">Docs</a>
                 <a href="/privacy">Privacy</a>
                 <a href="/terms">Terms</a>
                 <a href="/contact">Contact</a>
@@ -265,7 +372,8 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="/static/script.js?v=20260208-featuretimeline"></script>
+    <script src="/static/script.js?v=20260211-mobilefix6"></script>
+
 </body>
 
 </html>
