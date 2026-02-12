@@ -14,18 +14,9 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=20260211-mobilefix7">
+    <link rel="stylesheet" href="/static/style.css?v=20260208-ui1">
     <link rel="stylesheet" href="/static/auth.css?v=20260208-auth1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FZ938EG6X2"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        gtag('js', new Date());
-
-        gtag('config', 'G-FZ938EG6X2');
-    </script>
 </head>
 
 <body class="auth-page">
@@ -40,20 +31,6 @@
             </div>
             <div class="nav-links">
                 <a href="/">Home</a>
-                <div class="nav-dropdown-wrapper">
-                    <button class="nav-dropdown-btn">Solutions <i class="fa-solid fa-chevron-down"
-                            aria-hidden="true"></i></button>
-                    <div class="nav-dropdown-menu">
-                        <a href="/solutions/personalization">
-                            <span class="nav-dropdown-title">Personalization</span>
-                            <span class="nav-dropdown-desc">Localize onboarding and content in real time.</span>
-                        </a>
-                        <a href="/solutions/cybersecurity-anti-fraud">
-                            <span class="nav-dropdown-title">Cybersecurity and Anti-Fraud</span>
-                            <span class="nav-dropdown-desc">Detect and prevent fraudulence early.</span>
-                        </a>
-                    </div>
-                </div>
             </div>
         </div>
     </nav>
@@ -72,7 +49,8 @@
                 {% if google_oauth_configured %}
                 <div class="auth-actions">
                     <a class="google-btn" href="/auth/google?next={{ next_encoded or '%2F' }}">
-                        <i class="fa-brands fa-google google-btn__icon" style="color: #DB4437; font-size: 1.2rem;"></i>
+                        <img class="google-btn__icon" src="https://www.svgrepo.com/show/475656/google-color.svg"
+                            alt="Google">
                         Continue with Google
                     </a>
                 </div>
@@ -96,3 +74,4 @@
 </body>
 
 </html>
+

@@ -14,17 +14,8 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Nunito:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=20260210-mobilefeatures1">
+    <link rel="stylesheet" href="/static/style.css?v=20260208-ui1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FZ938EG6X2"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        gtag('js', new Date());
-
-        gtag('config', 'G-FZ938EG6X2');
-    </script>
 </head>
 
 <body>
@@ -33,25 +24,12 @@
             <div class="logo">
                 <a href="/"
                     style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
-                    <img src="/static/img/logo_mark.png" alt="True Geo IP Logo" style="height: 40px; width: auto;">
-                    True Geo IP
+                    <img src="/static/img/logo_mark.png" alt="IP Intelligence Logo" style="height: 40px; width: auto;">
+                    IP Intelligence
                 </a>
             </div>
             <div class="nav-links">
                 <a href="/">Home</a>
-                <details class="nav-dropdown">
-                    <summary>Solutions <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
-                    <div class="nav-dropdown-menu">
-                        <a href="/solutions/personalization">
-                            <span class="nav-dropdown-title">Personalization</span>
-                            <span class="nav-dropdown-desc">Localize onboarding and content in real time.</span>
-                        </a>
-                        <a href="/solutions/cybersecurity-anti-fraud">
-                            <span class="nav-dropdown-title">Cybersecurity and Anti-Fraud</span>
-                            <span class="nav-dropdown-desc">Detect and prevent fraudulence early.</span>
-                        </a>
-                    </div>
-                </details>
             </div>
         </div>
     </nav>
@@ -102,8 +80,7 @@
             </form>
 
             <div style="margin-top: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.9em;">
-                Didn't receive code? <a href="/signup?next={{ next_encoded or '%2F' }}"
-                    style="color: var(--primary); text-decoration: none;">Register
+                Didn't receive code? <a href="/signup?next={{ next_encoded or '%2F' }}" style="color: var(--primary); text-decoration: none;">Register
                     again</a>
             </div>
         </div>
