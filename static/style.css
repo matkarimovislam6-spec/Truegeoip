@@ -148,7 +148,7 @@ h3 {
 
 /* Sunset Theme - Cards with glassmorphism effect */
 [data-theme="sunset"] .card {
-    background: rgba(45, 34, 55, 0.9);
+    background: rgba(221, 98, 221, 0.9);
     border: 1px solid rgba(249, 145, 74, 0.15);
     box-shadow:
         0 20px 40px -10px rgba(0, 0, 0, 0.4),
