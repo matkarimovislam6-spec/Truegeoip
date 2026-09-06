@@ -1180,12 +1180,12 @@ CHECKOUT_PLAN_CATALOG = {
     "start": {
         "name": "Starter",
         "category": "API",
-        "price": "$7",
+        "price": "$1.99",
         "period": "/mo",
         "description": "For small applications and early products.",
         "cta_label": "Upgrade to Starter",
         "features": [
-            "50,000 requests per month",
+            "30,000 requests per month",
             "IP & network insights",
             "IP type & user type",
             "Datacenter detection",
