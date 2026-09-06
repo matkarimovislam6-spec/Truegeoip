@@ -1182,7 +1182,7 @@ CHECKOUT_PLAN_CATALOG = {
         "category": "API",
         "price": "$7",
         "period": "/mo",
-        "description": "For small apps and early products.",
+        "description": "For small applications and early products.",
         "cta_label": "Upgrade to Starter",
         "features": [
             "50,000 requests per month",
