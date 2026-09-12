@@ -270,7 +270,7 @@ const Home = () => {
                 </div>
                 <div className="hero-content">
                     <div className="hero-text">
-                        <h1>Precise IP Solution for <span className="gradient-text">Your Business</span></h1>
+                        <h1>New generation of <span className="gradient-text">IP detection</span></h1>
                         <p className="hero-subtitle">
                             Enrich your analytics, prevent fraud, and personalize content with carrier-grade IP geolocation and
                             ASN data. <br />
